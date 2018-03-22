@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+
+import sys
+
+from checking.utils import Rpm, SeContext
+
+# If container-selinux is not installed fail fast and early
+if not Rpm.verify('container-selinux'):
+    sys.stderr.write(
+        'Failed to find installed {} rpm\n'.format('container-selinux')
+    )
+    sys.exit(1)
+
+# Check that files on the host are as expected
+FILES = [
+    '/usr/share/selinux/devel',
+    '/usr/share/selinux/devel/include',
+    '/usr/share/selinux/devel/include/services',
+    '/usr/share/selinux/devel/include/services/container.if',
+    '/usr/share/selinux/packages',
+    '/usr/share/selinux/packages/container.pp.bz2',
+]
+
+error = False
+for path in FILES:
+    try:
+        # Side effect: The existance of the 'path' will also be verified
+        SeContext.verify(path)
+    except OSError as e:
+        sys.stderr.write('{}\n'.format(str(e)))
+        error = True
+        continue
+
+sys.exit(0 if not error else 1)

@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+
+import sys
+
+from checking.utils import Rpm, SeContext
+
+# If cri-o is not installed fail fast and early
+if not Rpm.verify('cri-o'):
+    sys.stderr.write('Failed to find installed {} rpm\n'.format('cri-o'))
+    sys.exit(1)
+
+# Check that files on the host are as expected
+FILES = [
+    '/etc/cni/net.d/100-crio-bridge.conf',
+    '/etc/cni/net.d/200-loopback.conf',
+    '/etc/crictl.yaml',
+    '/etc/crio',
+    '/etc/crio/crio.conf',
+    '/etc/crio/seccomp.json',
+    '/etc/sysconfig/crio-network',
+    '/etc/sysconfig/crio-storage',
+    '/usr/bin/crio',
+    '/usr/lib/systemd/system/cri-o.service',
+    '/usr/lib/systemd/system/crio-shutdown.service',
+    '/usr/lib/systemd/system/crio.service',
+    '/usr/libexec/crio',
+    '/usr/libexec/crio/conmon',
+    '/usr/libexec/crio/pause',
+    '/usr/share/man/man5/crio.conf.5.gz',
+    '/usr/share/man/man8/crio.8.gz',
+    '/usr/share/oci-umount',
+    '/usr/share/oci-umount/oci-umount.d',
+    '/usr/share/oci-umount/oci-umount.d/crio-umount.conf',
+    '/var/lib/containers',
+]
+
+error = False
+for path in FILES:
+    try:
+        # Side effect: The existance of the 'path' will also be verified
+        SeContext.verify(path)
+    except OSError as e:
+        sys.stderr.write('{}\n'.format(str(e)))
+        error = True
+        continue
+
+sys.exit(0 if not error else 1)

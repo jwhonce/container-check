@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+
+import sys
+
+from checking.utils import Rpm, SeContext
+
+# If runc is not installed fail fast and early
+if not Rpm.verify('runc'):
+    sys.stderr.write('Failed to find installed {} rpm\n'.format('runc'))
+    sys.exit(1)
+
+# Check that files on the host are as expected
+FILES = [
+    '/usr/bin/recvtty',
+    '/usr/bin/runc',
+    '/usr/lib/sysctl.d/99-containers.conf',
+    '/usr/share/man/man8/runc-checkpoint.8.gz',
+    '/usr/share/man/man8/runc-create.8.gz',
+    '/usr/share/man/man8/runc-delete.8.gz',
+    '/usr/share/man/man8/runc-events.8.gz',
+    '/usr/share/man/man8/runc-exec.8.gz',
+    '/usr/share/man/man8/runc-kill.8.gz',
+    '/usr/share/man/man8/runc-list.8.gz',
+    '/usr/share/man/man8/runc-pause.8.gz',
+    '/usr/share/man/man8/runc-ps.8.gz',
+    '/usr/share/man/man8/runc-restore.8.gz',
+    '/usr/share/man/man8/runc-resume.8.gz',
+    '/usr/share/man/man8/runc-run.8.gz',
+    '/usr/share/man/man8/runc-spec.8.gz',
+    '/usr/share/man/man8/runc-start.8.gz',
+    '/usr/share/man/man8/runc-state.8.gz',
+    '/usr/share/man/man8/runc-update.8.gz',
+    '/usr/share/man/man8/runc.8.gz',
+]
+
+error = False
+for path in FILES:
+    try:
+        # Side effect: The existance of the 'path' will also be verified
+        SeContext.verify(path)
+    except OSError as e:
+        sys.stderr.write('{}\n'.format(str(e)))
+        error = True
+        continue
+
+sys.exit(0 if not error else 1)

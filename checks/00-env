@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Basic information and example of bash script
+source checking/utils.sh
+
+cat /etc/redhat-release
+logging::debug PATH=$PATH
+
+exit 0
