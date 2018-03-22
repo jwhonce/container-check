@@ -13,9 +13,6 @@ RUN \
     rpm -V ${PKG_LIST} && \
     yum clean all
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
 COPY . .
 
 CMD [ "python", "./container-check" ]
