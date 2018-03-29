@@ -9,7 +9,7 @@ class Checker(object):
 
     def check(self, path=None, debug=False):
         files = os.listdir(path)
-        if len(files) == 0:
+        if not files:
             logging.error("{} contains no checks".format(path))
             return False
 
@@ -37,21 +37,17 @@ class Checker(object):
             if is_exec(cmd):
                 try:
                     output = subprocess.check_output(
-                        cmd,
-                        shell=True,
-                        close_fds=True,
-                        stderr=subprocess.STDOUT,
-                        env=env
+                        cmd, close_fds=True, stderr=subprocess.STDOUT, env=env
                     ).strip()
 
-                    if len(output) < 1:
+                    if not output:
                         output = 'Completed successfully'
-                    logging.info(fmt(output))
 
+                    logging.info(fmt(output))
                 except subprocess.CalledProcessError as e:
                     error = True
                     cooked = e.output.strip()
-                    logging.error(fmt(cooked if len(cooked) > 0 else str(e)))
+                    logging.error(fmt(cooked if cooked else str(e)))
                     logging.debug(str(e))
                     continue
             else:

@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import errno
 import os
 import stat
@@ -5,15 +7,21 @@ import stat
 import selinux
 
 
-class SeContextError(OSError):
+class SelinuxError(OSError):
     """Report Selinux Context Error"""
 
     def __init__(self, errno, strerror, path):
-        super(SeContextError, self).__init__(errno, strerror, path)
+        super(SelinuxError, self).__init__(errno, strerror, path)
 
 
-class SeContext(object):
+class Selinux(object):
     """Helpers for SeLinux bindings"""
+
+    @classmethod
+    def is_enabled(cls, prefix='/host'):
+        cooked = os.sep.join([prefix, 'sys/fs/selinux/enforce'])
+        with open(cooked, 'r') as fd:
+            return True if fd.read().startswith('1') else False
 
     @classmethod
     def verify(cls, path, prefix='/host'):
@@ -36,17 +44,17 @@ class SeContext(object):
                 raise e
 
         if status != 0:
-            raise SeContextError(int(status), os.strerror(int(status)), path)
+            raise SelinuxError(int(status), os.strerror(int(status)), path)
 
         try:
             _, actual = selinux.lgetfilecon(cooked)
         except OSError as e:
             if e.errno != errno.ENODATA:
-                raise SeContextError(e.errno, os.strerror(int(e.errno)), path)
+                raise SelinuxError(e.errno, os.strerror(int(e.errno)), path)
             actual = None
 
         if expected != actual:
-            raise SeContextError(
+            raise SelinuxError(
                 errno.EINVAL,
                 "Incorrect context: actual({}) expected({})".format(
                     actual, expected

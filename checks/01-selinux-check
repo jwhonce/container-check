@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 
+import errno
 import sys
 
-from checking.utils import Rpm, SeContext
+from checking.utils import Rpm, Selinux
 
-# If container-selinux is not installed fail fast and early
-if not Rpm.verify('container-selinux'):
-    sys.stderr.write(
-        'Failed to find installed {} rpm\n'.format('container-selinux')
-    )
-    sys.exit(1)
+# If package is not installed fail fast and early
+try:
+    Rpm.verify('container-selinux')
+except OSError as e:
+    sys.stderr.write(e.strerror)
+    if e.errno == errno.ENOENT:
+        sys.exit(1)
+
 
 # Check that files on the host are as expected
 FILES = [
@@ -25,10 +28,13 @@ error = False
 for path in FILES:
     try:
         # Side effect: The existance of the 'path' will also be verified
-        SeContext.verify(path)
+        Selinux.verify(path)
     except OSError as e:
-        sys.stderr.write('{}\n'.format(str(e)))
+        sys.stderr.write('  {}\n'.format(str(e)))
         error = True
         continue
+
+if not Selinux.is_enabled():
+    sys.stderr.write('selinux enforcing is OFF\n')
 
 sys.exit(0 if not error else 1)

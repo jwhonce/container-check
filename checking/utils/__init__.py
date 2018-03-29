@@ -1,6 +1,6 @@
 """Helper Classes for python checks"""
 
-from .rpm import Rpm
-from .secontext import SeContext, SeContextError
+from .rpm import Rpm, RpmError
+from .selinux import Selinux, SelinuxError
 
-__all__ = ['SeContext', 'SeContextError', 'Rpm']
+__all__ = ['Selinux', 'SelinuxError', 'Rpm', 'RpmError']

@@ -5,6 +5,8 @@ run:
 	-v /etc:/host/etc:ro \
 	-v /usr:/host/usr:ro \
 	-v /var:/host/var:ro \
+	-v /run:/host/run:ro \
+	-v /sys:/host/sys:ro \
 	-it --privileged --rm --name container-check container-check
 
 debug:
@@ -12,6 +14,7 @@ debug:
 		-v /etc:/host/etc:ro \
 		-v /usr:/host/usr:ro \
 		-v /var:/host/var:ro \
+		-v /sys:/host/sys:ro \
 		-it --privileged --rm --name container-check container-check ./container-check --debug
 
 build:
