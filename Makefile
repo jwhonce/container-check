@@ -19,3 +19,9 @@ debug:
 
 build:
 	docker build -t container-check .
+
+
+clean:
+	find . -type f -name '*.pyc' -exec rm '{}' ';' ||:
+	docker ps --all --filter 'status=exited' --format '{{.ID}}' | xargs docker rm ||:
+	docker image list --filter 'dangling=true' --format '{{.ID}}' | xargs docker rmi ||:
