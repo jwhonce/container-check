@@ -9,8 +9,8 @@ class RpmError(OSError):
         super(RpmError, self).__init__(errno, strerror, path)
 
 
-not_found = '{} is not installed/found on host\n'
-not_valid = 'Files in package {} failed validation:\n{}'
+not_found = 'Package "{}" is not installed/found on host\n'
+not_valid = 'Files in package "{}" failed validation:\n{}'
 
 
 class Rpm(object):
@@ -29,24 +29,29 @@ class Rpm(object):
            - Modification Time
         """
         try:
-            subprocess.check_output(
-                ['rpm', '--verify', '--root', prefix, name], close_fds=True
-            )
-            return None, name
+            cmd = ['rpm', '--verify']
+            if prefix:
+                cmd += ['--root', prefix]
+            cmd.append(name)
+
+            subprocess.check_output(cmd, close_fds=True)
+            return name
         except subprocess.CalledProcessError as e:
             if e.output.find('is not installed') >= 0:
                 raise RpmError(errno.ENOENT, not_found.format(name), name)
-
-            msg = ''.join('  ' + line for line in e.output.splitlines(True))
-            raise RpmError(errno.EINVAL, not_valid.format(name, msg), name)
+            raise RpmError(
+                errno.EINVAL, not_valid.format(name, e.output), name
+            )
 
     @classmethod
-    def name(cls, name, prefix='/host'):
+    def nvr(cls, name, prefix='/host'):
         try:
-            output = subprocess.check_output(
-                ['rpm', '--query', '--root', prefix, name], close_fds=True
-            )
-            return None, output.strip()
+            cmd = ['rpm', '--query']
+            if prefix:
+                cmd += ['--root', prefix]
+            cmd.append(name)
+
+            return subprocess.check_output(cmd, close_fds=True).strip()
         except subprocess.CalledProcessError as e:
             if e.output.find('is not installed') >= 0:
                 raise RpmError(errno.ENOENT, not_found.format(name), name)

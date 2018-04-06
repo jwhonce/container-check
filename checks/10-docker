@@ -1,0 +1,200 @@
+#!/usr/bin/env python
+
+import errno
+import os
+import sys
+
+import docker
+
+from checking.utils import (Rpm, Selinux, Systemd1, log_error, log_info,
+                            read_config)
+
+
+class Pathname(str):
+    """Class to manipulate paths relative to container and host"""
+
+    def __new__(cls, path, prefix='/host'):
+        full = os.sep.join([prefix, path.lstrip(os.sep)])
+        o = super(Pathname, cls).__new__(cls, full)
+
+        o._path = path.replace(prefix, '', 1) \
+            if path.startswith(prefix) else path
+        o._prefix = prefix
+        return o
+
+    def relpath(self):
+        return self._path
+
+    def abspath(self):
+        return str(self)
+
+
+# will be set to True on any failed confirm
+error = False
+
+
+def confirm(boolean, message):
+    global error
+    if not boolean:
+        error = True
+        log_error(message)
+
+
+PACKAGES = [
+    'docker-client',
+    'docker-common',
+    'docker-rhel-push-plugin',
+    'docker',
+]
+
+# Check that packages on the host are as expected
+for pkg in PACKAGES:
+    try:
+        Rpm.verify(pkg)
+    except OSError as e:
+        log_error(e.strerror)
+        if e.errno == errno.ENOENT:
+            error = True
+
+# Check that files on the host are as expected
+FILES = [
+    '/etc/docker',
+    '/etc/docker/certs.d',
+    '/etc/docker/certs.d/redhat.com',
+    '/etc/docker/certs.d/redhat.com/redhat-ca.crt',
+    '/etc/docker/certs.d/redhat.io',
+    '/etc/docker/certs.d/redhat.io/redhat-ca.crt',
+    '/etc/docker/certs.d/registry.access.redhat.com',
+    '/etc/docker/certs.d/registry.access.redhat.com/redhat-ca.crt',
+    '/etc/docker/daemon.json',
+    '/etc/docker/seccomp.json',
+    '/etc/sysconfig/docker-network',
+    '/etc/sysconfig/docker-storage-setup',
+    '/etc/sysconfig/docker-storage',
+    '/etc/sysconfig/docker',
+    '/run/docker.sock',
+    '/usr/bin/docker-containerd-current',
+    '/usr/bin/docker-containerd-shim-current',
+    '/usr/bin/docker-containerd-shim',
+    '/usr/bin/docker-containerd',
+    '/usr/bin/docker-ctr-current',
+    '/usr/bin/docker-storage-setup',
+    '/usr/bin/docker',
+    '/usr/bin/dockerd-current',
+    '/usr/lib/sysctl.d/99-docker.conf',
+    '/usr/lib/systemd/system/docker-cleanup.service',
+    '/usr/lib/systemd/system/docker-cleanup.timer',
+    '/usr/lib/systemd/system/docker-storage-setup.service',
+    '/usr/lib/systemd/system/docker.service',
+    '/usr/lib/udev/rules.d/80-docker.rules',
+    '/usr/libexec/docker',
+    '/usr/libexec/docker/docker-init-current',
+    '/usr/libexec/docker/docker-proxy-current',
+    '/usr/libexec/docker/docker-runc-current',
+    '/var/lib/docker',
+]
+
+for path in FILES:
+    try:
+        # Side effect: The existance of the 'path' will also be verified
+        Selinux.verify(path)
+    except OSError as e:
+        log_error(e)
+        error = True
+        continue
+
+client = docker.DockerClient(
+    base_url='unix://host/var/run/docker.sock', version='auto'
+)
+info = client.info()
+
+log_info('package version {}'.format(info['PkgVersion']))
+
+msg = 'A driver "{}" is recommended in production rather than "{}"'
+expected = ['overlay', 'overlay2']
+confirm(info['Driver'] in expected, msg.format(expected, info['Driver']))
+
+confirm(
+    'rhel-push-plugin' in info['Plugins']['Authorization'],
+    'rhel-push-plugin Authorization plugin is not configured'
+)
+
+confirm(
+    info['BridgeNfIptables'],
+    'container engine must be configured to use iptables'
+)
+
+confirm(
+    info['LoggingDriver'] == 'json-file',
+    '"json-file" is recommended for --log-driver in production not "{}"'.
+    format(info['LoggingDriver'])
+)
+
+confirm([s for s in info['SecurityOptions'] if 'selinux' in s],
+        'daemon running without "--selinux-enabled"')
+
+confirm(
+    not info['ExperimentalBuild'],
+    'Experimental builds should not be used in production'
+)
+
+confirm(
+    info['CgroupDriver'] == 'systemd', (
+        '"--exec-opt native.cgroupdriver=systemd" should '
+        'be used in production not "{}"'
+    ).format(info['CgroupDriver'])
+)
+
+file = Pathname('/etc/sysconfig/docker')
+config = read_config(file)
+required = ['OPTIONS', 'ADD_REGISTRY']
+
+missing = set(required).difference(config.keys())
+if missing:
+    log_error(
+        'Missing "{}" option(s) in {}'.format(
+            ', '.join(missing), file.relpath()
+        )
+    )
+
+var = 'OPTIONS'
+confirm(
+    '--selinux-enabled' in config.get(var, ''),
+    'Missing --selinux-enabled for {} in {}'.format(var, file.relpath())
+)
+
+confirm(
+    '--insecure-registry' not in config.get(var, ''),
+    ('"--insecure-registry" for {} in {}'
+     ' should not be used in production').format(var, file.relpath())
+)
+
+var = 'ADD_REGISTRY'
+val = '--add-registry registry.access.redhat.com'
+confirm(
+    val in config.get(var, ''),
+    'Missing "{}" for {} in {}'.format(val, var, file.relpath())
+)
+
+file = Pathname('/etc/sysconfig/docker-storage')
+config = read_config(file)
+var = 'DOCKER_STORAGE_OPTIONS'
+confirm(
+    var in config.keys(),
+    'Missing "{}" option(s) in {}'.format(var, file.relpath())
+)
+
+val = '--storage-driver overlay2'
+confirm(
+    val in config.get(var, ''),
+    'Missing "{}" for {} in {}'.format(val, var, file.relpath())
+)
+
+service = Systemd1('docker.service')
+confirm(service.isactive(), 'docker.service is not active')
+confirm(service.isenabled(), 'docker.service is not enabled')
+
+timer = Systemd1('docker-cleanup.timer')
+confirm(timer.isactive(), 'docker-cleanup.timer is not active')
+
+sys.exit(0 if not error else 1)

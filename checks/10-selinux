@@ -3,13 +3,13 @@
 import errno
 import sys
 
-from checking.utils import Rpm, Selinux
+from checking.utils import Rpm, Selinux, log_error
 
 # If package is not installed fail fast and early
 try:
     Rpm.verify('container-selinux')
 except OSError as e:
-    sys.stderr.write(e.strerror)
+    log_error(e.strerror)
     if e.errno == errno.ENOENT:
         sys.exit(1)
 
@@ -30,11 +30,11 @@ for path in FILES:
         # Side effect: The existance of the 'path' will also be verified
         Selinux.verify(path)
     except OSError as e:
-        sys.stderr.write('  {}\n'.format(str(e)))
+        log_error(e)
         error = True
         continue
 
 if not Selinux.is_enabled():
-    sys.stderr.write('selinux enforcing is OFF\n')
+    log_error('selinux enforcing is OFF')
 
 sys.exit(0 if not error else 1)

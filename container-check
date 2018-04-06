@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 
-from checking import Checker
+from checking import Checker, __version__
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -15,6 +15,9 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-d', '--debug', action='store_true', help='Turn on debug logging'
+    )
+    parser.add_argument(
+        '--version', action='version', version='%(prog)s ' + __version__
     )
     parser.add_argument(
         '-c',
@@ -27,7 +30,9 @@ if __name__ == '__main__':
 
     level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(
-        level=level, format='%(asctime)s | %(levelname)-7s | %(message)s'
+        level=level,
+        format='%(asctime)s | %(levelname)-7s | %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
     )
     logging.debug(
         'Logging initialized at level {}'.format(

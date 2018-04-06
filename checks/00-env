@@ -3,7 +3,9 @@
 # Basic information and example of bash script
 source checking/utils.sh
 
-cat /etc/redhat-release
+echo Host OS Version: $(cat /host/etc/redhat-release)
+echo Container OS Version: $(cat /etc/redhat-release)
+
 logging::debug PATH=$PATH
 
 exit 0
