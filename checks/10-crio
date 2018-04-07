@@ -3,49 +3,41 @@
 import errno
 import sys
 
-from checking.utils import Rpm, Selinux, log_error
+from checking.utils import Rpm, Selinux, Systemd, log_error
 
-# If package is not installed fail fast and early
+# will be set to True on any failed confirm
+error = False
+FILES = []
+
+
+def confirm(boolean, message):
+    global error
+    if not boolean:
+        error = True
+        log_error(message)
+
+
 try:
-    Rpm.verify('cri-o')
+    rpm = Rpm('cri-o')
+    rpm.verify()
+    FILES = rpm.files
 except OSError as e:
     log_error(e.strerror)
     if e.errno == errno.ENOENT:
-        sys.exit(1)
+        error = True
 
-# Check that files on the host are as expected
-FILES = [
-    '/etc/cni/net.d/100-crio-bridge.conf',
-    '/etc/cni/net.d/200-loopback.conf',
-    '/etc/crictl.yaml',
-    '/etc/crio',
-    '/etc/crio/crio.conf',
-    '/etc/crio/seccomp.json',
-    '/etc/sysconfig/crio-network',
-    '/etc/sysconfig/crio-storage',
-    '/usr/bin/crio',
-    '/usr/lib/systemd/system/cri-o.service',
-    '/usr/lib/systemd/system/crio-shutdown.service',
-    '/usr/lib/systemd/system/crio.service',
-    '/usr/libexec/crio',
-    '/usr/libexec/crio/conmon',
-    '/usr/libexec/crio/pause',
-    '/usr/share/man/man5/crio.conf.5.gz',
-    '/usr/share/man/man8/crio.8.gz',
-    '/usr/share/oci-umount',
-    '/usr/share/oci-umount/oci-umount.d',
-    '/usr/share/oci-umount/oci-umount.d/crio-umount.conf',
-    '/var/lib/containers',
-]
-
-error = False
+selinux = Selinux()
 for path in FILES:
     try:
         # Side effect: The existance of the 'path' will also be verified
-        Selinux.verify(path)
+        selinux.verify(path)
     except OSError as e:
         log_error(e)
         error = True
         continue
+
+service = Systemd('crio.service')
+confirm(service.isactive(), 'crio.service is not active')
+confirm(service.isenabled(), 'crio.service is not enabled')
 
 sys.exit(0 if not error else 1)

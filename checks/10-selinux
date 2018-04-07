@@ -3,38 +3,43 @@
 import errno
 import sys
 
-from checking.utils import Rpm, Selinux, log_error
+from checking.utils import Rpm, Selinux, log_error, log_info
+
+# will be set to True on any failed confirm
+error = False
+FILES = []
+rpm = None
+
+
+def confirm(boolean, message):
+    global error
+    if not boolean:
+        error = True
+        log_error(message)
+
 
 # If package is not installed fail fast and early
 try:
-    Rpm.verify('container-selinux')
+    rpm = Rpm('container-selinux', prefix=None)
+    rpm.verify()
+    FILES = rpm.files
+
+    log_info('System of record: package ' + rpm.nvr)
 except OSError as e:
     log_error(e.strerror)
     if e.errno == errno.ENOENT:
-        sys.exit(1)
+        error = True
 
-
-# Check that files on the host are as expected
-FILES = [
-    '/usr/share/selinux/devel',
-    '/usr/share/selinux/devel/include',
-    '/usr/share/selinux/devel/include/services',
-    '/usr/share/selinux/devel/include/services/container.if',
-    '/usr/share/selinux/packages',
-    '/usr/share/selinux/packages/container.pp.bz2',
-]
-
-error = False
+selinux = Selinux()
 for path in FILES:
     try:
         # Side effect: The existance of the 'path' will also be verified
-        Selinux.verify(path)
+        selinux.verify(path)
     except OSError as e:
         log_error(e)
         error = True
         continue
 
-if not Selinux.is_enabled():
-    log_error('selinux enforcing is OFF')
+confirm(selinux.isenabled, 'selinux enforcing is OFF')
 
 sys.exit(0 if not error else 1)

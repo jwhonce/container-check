@@ -6,6 +6,6 @@ source checking/utils.sh
 echo Host OS Version: $(cat /host/etc/redhat-release)
 echo Container OS Version: $(cat /etc/redhat-release)
 
-logging::debug PATH=$PATH
+log::debug PATH=$PATH
 
 exit 0

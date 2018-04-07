@@ -1,3 +1,4 @@
+import copy
 import errno
 import subprocess
 
@@ -5,57 +6,51 @@ import subprocess
 class RpmError(OSError):
     """Report RPM Error"""
 
-    def __init__(self, errno, strerror, path):
-        super(RpmError, self).__init__(errno, strerror, path)
-
-
-not_found = 'Package "{}" is not installed/found on host\n'
-not_valid = 'Files in package "{}" failed validation:\n{}'
-
 
 class Rpm(object):
     """ Helper for rpm commands"""
+    not_found = 'Package "{}" is not installed/found on host'
+    not_valid = 'Files in package "{}" failed validation:\n{}'
 
-    @classmethod
-    def verify(cls, name, prefix='/host'):
-        """Verify files against rpm database, these attributes:
-           - Owner
-           - Group
-           - Mode
-           - MD5 Checksum
-           - Size
-           - Major/Minor Number
-           - Symbolic Link String
-           - Modification Time
-        """
+    def __init__(self, name, prefix='/host'):
+        self._name = name
+        self._prefix = prefix
+
+    def _query(self, command):
         try:
-            cmd = ['rpm', '--verify']
-            if prefix:
-                cmd += ['--root', prefix]
-            cmd.append(name)
-
-            subprocess.check_output(cmd, close_fds=True)
-            return name
+            return subprocess.check_output(command, close_fds=True).strip()
         except subprocess.CalledProcessError as e:
             if e.output.find('is not installed') >= 0:
-                raise RpmError(errno.ENOENT, not_found.format(name), name)
+                raise RpmError(
+                    errno.ENOENT, Rpm.not_found.format(self._name), self._name
+                )
             raise RpmError(
-                errno.EINVAL, not_valid.format(name, e.output), name
+                errno.EINVAL, Rpm.not_valid.format(self._name, e.output),
+                self._name
             )
 
-    @classmethod
-    def nvr(cls, name, prefix='/host'):
-        try:
-            cmd = ['rpm', '--query']
-            if prefix:
-                cmd += ['--root', prefix]
-            cmd.append(name)
+    def _build_command(self, command):
+        c = copy.deepcopy(command)
+        if self._prefix:
+            c.extend(['--root', self._prefix])
+        c.append(self._name)
+        return c
 
-            return subprocess.check_output(cmd, close_fds=True).strip()
-        except subprocess.CalledProcessError as e:
-            if e.output.find('is not installed') >= 0:
-                raise RpmError(errno.ENOENT, not_found.format(name), name)
+    def verify(self):
+        """Verify files against rpm database, See rpm manpage."""
+        c = self._build_command(['rpm', '--verify'])
+        self._query(c)
+        return True
 
-            raise RpmError(
-                errno.EINVAL, not_valid.format(name, e.output), name
-            )
+    @property
+    def files(self):
+        """Obtain files  for package"""
+        c = self._build_command(['rpm', '--query', '--list'])
+        o = self._query(c)
+        return o.strip().splitlines()
+
+    @property
+    def nvr(self):
+        """Obtain (name, version, release) for package"""
+        c = self._build_command(['rpm', '--query'])
+        return self._query(c)

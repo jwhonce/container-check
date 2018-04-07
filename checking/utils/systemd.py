@@ -3,34 +3,30 @@ import threading
 import dbus
 
 
-class Systemd1Error(Exception):
-    """Raise exception on systemd1 dbus errors"""
-
-
-class Systemd1(object):
+class Systemd(object):
     """Provide wrapper classes and methods for DBus Systemd1 API"""
 
     def __init__(self, service, prefix='/host'):
         self._lock = threading.Lock()
         self._service = service
+        self._properties = None
 
-        # No duplicate separators allowed in debus path
+        # No duplicate separators allowed in dbus path
         path = '/'.join(
             t.strip('/')
             for t in ['unix:path=', prefix, '/var/run/dbus/system_bus_socket']
         )
         bus = dbus.bus.BusConnection(path)
 
-        systemd1 = bus.get_object(
+        systemd = bus.get_object(
             'org.freedesktop.systemd1', '/org/freedesktop/systemd1'
         )
-        manager = dbus.Interface(systemd1, 'org.freedesktop.systemd1.Manager')
+        manager = dbus.Interface(systemd, 'org.freedesktop.systemd1.Manager')
         unit = manager.LoadUnit(service)
         proxy = bus.get_object('org.freedesktop.systemd1', str(unit))
         self._interface = dbus.Interface(
             proxy, dbus_interface='org.freedesktop.DBus.Properties'
         )
-        self._properties = None
 
     def isenabled(self):
         return self.get('UnitFileState') == 'enabled'

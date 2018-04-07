@@ -1,33 +1,12 @@
 #!/usr/bin/env python
 
 import errno
-import os
 import sys
 
 import docker
 
-from checking.utils import (Rpm, Selinux, Systemd1, log_error, log_info,
-                            read_config)
-
-
-class Pathname(str):
-    """Class to manipulate paths relative to container and host"""
-
-    def __new__(cls, path, prefix='/host'):
-        full = os.sep.join([prefix, path.lstrip(os.sep)])
-        o = super(Pathname, cls).__new__(cls, full)
-
-        o._path = path.replace(prefix, '', 1) \
-            if path.startswith(prefix) else path
-        o._prefix = prefix
-        return o
-
-    def relpath(self):
-        return self._path
-
-    def abspath(self):
-        return str(self)
-
+from checking.utils import (Pathname, Rpm, Selinux, Systemd, log_error,
+                            log_info, read_config)
 
 # will be set to True on any failed confirm
 error = False
@@ -46,58 +25,23 @@ PACKAGES = [
     'docker-rhel-push-plugin',
     'docker',
 ]
-
+FILES = []
 # Check that packages on the host are as expected
 for pkg in PACKAGES:
     try:
-        Rpm.verify(pkg)
+        rpm = Rpm(pkg)
+        rpm.verify()
+        FILES.extend(rpm.files)
     except OSError as e:
         log_error(e.strerror)
         if e.errno == errno.ENOENT:
             error = True
 
-# Check that files on the host are as expected
-FILES = [
-    '/etc/docker',
-    '/etc/docker/certs.d',
-    '/etc/docker/certs.d/redhat.com',
-    '/etc/docker/certs.d/redhat.com/redhat-ca.crt',
-    '/etc/docker/certs.d/redhat.io',
-    '/etc/docker/certs.d/redhat.io/redhat-ca.crt',
-    '/etc/docker/certs.d/registry.access.redhat.com',
-    '/etc/docker/certs.d/registry.access.redhat.com/redhat-ca.crt',
-    '/etc/docker/daemon.json',
-    '/etc/docker/seccomp.json',
-    '/etc/sysconfig/docker-network',
-    '/etc/sysconfig/docker-storage-setup',
-    '/etc/sysconfig/docker-storage',
-    '/etc/sysconfig/docker',
-    '/run/docker.sock',
-    '/usr/bin/docker-containerd-current',
-    '/usr/bin/docker-containerd-shim-current',
-    '/usr/bin/docker-containerd-shim',
-    '/usr/bin/docker-containerd',
-    '/usr/bin/docker-ctr-current',
-    '/usr/bin/docker-storage-setup',
-    '/usr/bin/docker',
-    '/usr/bin/dockerd-current',
-    '/usr/lib/sysctl.d/99-docker.conf',
-    '/usr/lib/systemd/system/docker-cleanup.service',
-    '/usr/lib/systemd/system/docker-cleanup.timer',
-    '/usr/lib/systemd/system/docker-storage-setup.service',
-    '/usr/lib/systemd/system/docker.service',
-    '/usr/lib/udev/rules.d/80-docker.rules',
-    '/usr/libexec/docker',
-    '/usr/libexec/docker/docker-init-current',
-    '/usr/libexec/docker/docker-proxy-current',
-    '/usr/libexec/docker/docker-runc-current',
-    '/var/lib/docker',
-]
-
+selinux = Selinux()
 for path in FILES:
     try:
         # Side effect: The existance of the 'path' will also be verified
-        Selinux.verify(path)
+        selinux.verify(path)
     except OSError as e:
         log_error(e)
         error = True
@@ -153,27 +97,27 @@ missing = set(required).difference(config.keys())
 if missing:
     log_error(
         'Missing "{}" option(s) in {}'.format(
-            ', '.join(missing), file.relpath()
+            ', '.join(missing), file.relpath
         )
     )
 
 var = 'OPTIONS'
 confirm(
     '--selinux-enabled' in config.get(var, ''),
-    'Missing --selinux-enabled for {} in {}'.format(var, file.relpath())
+    'Missing --selinux-enabled for {} in {}'.format(var, file.relpath)
 )
 
 confirm(
     '--insecure-registry' not in config.get(var, ''),
     ('"--insecure-registry" for {} in {}'
-     ' should not be used in production').format(var, file.relpath())
+     ' should not be used in production').format(var, file.relpath)
 )
 
 var = 'ADD_REGISTRY'
 val = '--add-registry registry.access.redhat.com'
 confirm(
     val in config.get(var, ''),
-    'Missing "{}" for {} in {}'.format(val, var, file.relpath())
+    'Missing "{}" for {} in {}'.format(val, var, file.relpath)
 )
 
 file = Pathname('/etc/sysconfig/docker-storage')
@@ -181,20 +125,20 @@ config = read_config(file)
 var = 'DOCKER_STORAGE_OPTIONS'
 confirm(
     var in config.keys(),
-    'Missing "{}" option(s) in {}'.format(var, file.relpath())
+    'Missing "{}" option(s) in {}'.format(var, file.relpath)
 )
 
 val = '--storage-driver overlay2'
 confirm(
     val in config.get(var, ''),
-    'Missing "{}" for {} in {}'.format(val, var, file.relpath())
+    'Missing "{}" for {} in {}'.format(val, var, file.relpath)
 )
 
-service = Systemd1('docker.service')
+service = Systemd('docker.service')
 confirm(service.isactive(), 'docker.service is not active')
 confirm(service.isenabled(), 'docker.service is not enabled')
 
-timer = Systemd1('docker-cleanup.timer')
+timer = Systemd('docker-cleanup.timer')
 confirm(timer.isactive(), 'docker-cleanup.timer is not active')
 
 sys.exit(0 if not error else 1)

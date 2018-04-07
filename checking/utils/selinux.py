@@ -6,38 +6,35 @@ import stat
 
 import selinux
 
+from .pathname import Pathname
+
 
 class SelinuxError(OSError):
     """Report Selinux Context Error"""
-
-    def __init__(self, errno, strerror, path):
-        super(SelinuxError, self).__init__(errno, strerror, path)
 
 
 class Selinux(object):
     """Helpers for SeLinux bindings"""
 
-    @classmethod
-    def is_enabled(cls, prefix='/host'):
-        cooked = os.sep.join([prefix, 'sys/fs/selinux/enforce'])
-        with open(cooked, 'r') as fd:
+    def __init__(self, prefix='/host'):
+        self._prefix = '/host'
+
+    @property
+    def isenabled(self):
+        path = Pathname('/sys/fs/selinux/enforce', self._prefix)
+        with open(path, 'r') as fd:
             return True if fd.read().startswith('1') else False
 
-    @classmethod
-    def verify(cls, path, prefix='/host'):
-        """
-        Verify the selinux context on given path is as expected,
-        add prefix if provided
-        """
-
-        cooked = os.sep.join([prefix, path])
+    def verify(self, path):
+        """Verify the selinux context on given path is as expected"""
+        fn = Pathname(path, self._prefix)
         try:
-            mode = os.lstat(cooked)[stat.ST_MODE]
+            mode = os.lstat(fn)[stat.ST_MODE]
             status, expected = selinux.matchpathcon(path, mode)
         except OSError:
-            cooked = os.path.realpath(os.path.expanduser(cooked))
+            fn = Pathname(os.path.realpath(os.path.expanduser(fn)), None)
             try:
-                mode = os.lstat(cooked)[stat.ST_MODE]
+                mode = os.lstat(fn)[stat.ST_MODE]
                 status, expected = selinux.matchpathcon(path, mode)
             except OSError as e:
                 e.filename = path
@@ -47,7 +44,7 @@ class Selinux(object):
             raise SelinuxError(int(status), os.strerror(int(status)), path)
 
         try:
-            _, actual = selinux.lgetfilecon(cooked)
+            _, actual = selinux.lgetfilecon(fn)
         except OSError as e:
             if e.errno != errno.ENODATA:
                 raise SelinuxError(e.errno, os.strerror(int(e.errno)), path)

@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import subprocess
@@ -41,7 +42,9 @@ class Checker(object):
 
         # build environment to run check in
         env = {}
-        env['PYTHONPATH'] = ':'.join(sys.path) + ':.'
+        pythonpath = copy.deepcopy(sys.path)
+        pythonpath.append('.')
+        env['PYTHONPATH'] = os.pathsep.join(pythonpath)
 
         if debug:
             env['DEBUG'] = 'True'

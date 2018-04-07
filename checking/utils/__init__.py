@@ -3,12 +3,13 @@
 import subprocess
 import sys
 
+from .pathname import Pathname
 from .rpm import Rpm, RpmError
 from .selinux import Selinux, SelinuxError
-from .systemd1 import Systemd1, Systemd1Error
+from .systemd import Systemd
 
 __all__ = [
-    'Selinux', 'SelinuxError', 'Rpm', 'RpmError', 'Systemd1', 'Systemd1Error'
+    'Selinux', 'SelinuxError', 'Rpm', 'RpmError', 'Systemd', 'Pathname'
 ]
 
 

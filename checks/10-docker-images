@@ -26,11 +26,13 @@ client = docker.DockerClient(
 
 for image in client.images.list():
     id = image.tags[0] if image.tags else image.short_id
+
     confirm(
         image.attrs['Config'].get('Healthcheck', ''),
         'Image "{}" missing a healthcheck'.format(id)
     )
 
+    # Pass judgement on how image was built
     for event in image.history():
         confirm(
             not re_update.search(event['CreatedBy']),

@@ -5,43 +5,23 @@ import sys
 
 from checking.utils import Rpm, Selinux, log_error
 
-# If package is not installed fail fast and early
+# will be set to True on any failed confirm
+error = False
+FILES = []
 try:
-    Rpm.verify('runc')
+    rpm = Rpm('runc')
+    rpm.verify()
+    FILES = rpm.files
 except OSError as e:
     log_error(e.strerror)
     if e.errno == errno.ENOENT:
-        sys.exit(1)
+        error = True
 
-# Check that files on the host are as expected
-FILES = [
-    '/usr/bin/recvtty',
-    '/usr/bin/runc',
-    '/usr/lib/sysctl.d/99-containers.conf',
-    '/usr/share/man/man8/runc-checkpoint.8.gz',
-    '/usr/share/man/man8/runc-create.8.gz',
-    '/usr/share/man/man8/runc-delete.8.gz',
-    '/usr/share/man/man8/runc-events.8.gz',
-    '/usr/share/man/man8/runc-exec.8.gz',
-    '/usr/share/man/man8/runc-kill.8.gz',
-    '/usr/share/man/man8/runc-list.8.gz',
-    '/usr/share/man/man8/runc-pause.8.gz',
-    '/usr/share/man/man8/runc-ps.8.gz',
-    '/usr/share/man/man8/runc-restore.8.gz',
-    '/usr/share/man/man8/runc-resume.8.gz',
-    '/usr/share/man/man8/runc-run.8.gz',
-    '/usr/share/man/man8/runc-spec.8.gz',
-    '/usr/share/man/man8/runc-start.8.gz',
-    '/usr/share/man/man8/runc-state.8.gz',
-    '/usr/share/man/man8/runc-update.8.gz',
-    '/usr/share/man/man8/runc.8.gz',
-]
-
-error = False
+selinux = Selinux()
 for path in FILES:
     try:
         # Side effect: The existance of the 'path' will also be verified
-        Selinux.verify(path)
+        selinux.verify(path)
     except OSError as e:
         log_error(e)
         error = True

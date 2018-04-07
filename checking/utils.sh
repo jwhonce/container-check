@@ -2,17 +2,17 @@
 
 # Helper functions for checks written in bash
 
-function logging::info {
+function log::info {
     echo "$1"
 }
 
-function logging::debug {
+function log::debug {
     if [ "x$DEBUG" = "x" ]; then
         return
     fi
     echo -e "\n  | DEBUG   | $1"
 }
 
-function logging::error {
+function log::error {
     echo 1>&2 "$1"
 }
