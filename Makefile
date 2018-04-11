@@ -1,29 +1,38 @@
 .PHONY: run debug build size version
 
+VOLUMES=\
+-v /etc:/host/etc:ro \
+-v /run:/host/run:ro \
+-v /sys:/host/sys:ro \
+-v /usr:/host/usr:ro \
+-v /var:/host/var:ro
+
 build:
 	docker build -t container-check .
 
 run:
-	docker run \
-	-v /etc:/host/etc:ro \
-	-v /run:/host/run:ro \
-	-v /sys:/host/sys:ro \
-	-v /usr:/host/usr:ro \
-	-v /var:/host/var:ro \
+	docker run ${VOLUMES} \
 	-it --privileged --rm --name container-check container-check
 
 debug:
-	docker run \
-	-v /etc:/host/etc:ro \
-	-v /run:/host/run:ro \
-	-v /sys:/host/sys:ro \
-	-v /usr:/host/usr:ro \
-	-v /var:/host/var:ro \
+	docker run ${VOLUMES} \
 	-it --privileged --rm --name container-check container-check ./container-check --debug
+
+bad-dir:
+	docker run ${VOLUMES} \
+	-it --privileged --rm --name container-check container-check ./container-check --checks=/no/dir/here
+
+format:
+	docker run ${VOLUMES} \
+	-it --privileged --rm --name container-check container-check ./container-check --format='%(asctime)s | %(levelname)-7s | %(message)s'
 
 version:
 	docker run \
 	-it --privileged --rm --name container-check container-check ./container-check --version
+
+help: build
+	docker run \
+	-it --privileged --rm --name container-check container-check ./container-check --help
 
 size:
 	@docker image list container-check --format 'Current Size: {{.Repository}} {{.Size}}\n'

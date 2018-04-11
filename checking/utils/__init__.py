@@ -8,9 +8,7 @@ from .rpm import Rpm, RpmError
 from .selinux import Selinux, SelinuxError
 from .systemd import Systemd
 
-__all__ = [
-    'Selinux', 'SelinuxError', 'Rpm', 'RpmError', 'Systemd', 'Pathname'
-]
+__all__ = ['Selinux', 'SelinuxError', 'Rpm', 'RpmError', 'Systemd', 'Pathname']
 
 
 def read_config(path):

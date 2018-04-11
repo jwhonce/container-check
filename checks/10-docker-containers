@@ -23,7 +23,7 @@ client = docker.DockerClient(
 for container in client.containers.list():
     confirm(
         container.attrs['Config']['User'],
-        'Container "{}" running as root'.format(container.name)
+        'Container "{}" running as "root"'.format(container.name)
     )
 
 sys.exit(0 if not error else 1)

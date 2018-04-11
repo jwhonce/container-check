@@ -117,7 +117,7 @@ var = 'ADD_REGISTRY'
 val = '--add-registry registry.access.redhat.com'
 confirm(
     val in config.get(var, ''),
-    'Missing "{}" for {} in {}'.format(val, var, file.relpath)
+    'Missing "{}" for {} in "{}"'.format(val, var, file.relpath)
 )
 
 file = Pathname('/etc/sysconfig/docker-storage')

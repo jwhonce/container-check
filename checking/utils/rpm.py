@@ -5,6 +5,7 @@ import subprocess
 
 class RpmError(OSError):
     """Report RPM Error"""
+    pass
 
 
 class Rpm(object):
@@ -25,8 +26,8 @@ class Rpm(object):
                     errno.ENOENT, Rpm.not_found.format(self._name), self._name
                 )
             raise RpmError(
-                errno.EINVAL, Rpm.not_valid.format(self._name, e.output),
-                self._name
+                errno.EINVAL,
+                Rpm.not_valid.format(self._name, e.output.strip()), self._name
             )
 
     def _build_command(self, command):

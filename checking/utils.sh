@@ -10,7 +10,7 @@ function log::debug {
     if [ "x$DEBUG" = "x" ]; then
         return
     fi
-    echo -e "\n  | DEBUG   | $1"
+    echo "$1"
 }
 
 function log::error {

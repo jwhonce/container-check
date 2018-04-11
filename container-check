@@ -6,12 +6,27 @@ import logging
 import os
 import sys
 
-from checking import Checker, __version__
+from checking import Checker, LoggerAdapter, __version__
+
+
+class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
+    def __init__(
+            self, prog, indent_increment=2, max_help_position=15, width=None
+    ):
+        super(HelpFormatter, self).__init__(
+            prog=prog,
+            indent_increment=indent_increment,
+            max_help_position=15,
+            width=width
+        )
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description="Command to verify container configuration on host",
-        add_help=True
+        description='Command to verify container configuration on host',
+        formatter_class=HelpFormatter,
+        add_help=True,
+        epilog=None
     )
     parser.add_argument(
         '-d', '--debug', action='store_true', help='Turn on debug logging'
@@ -26,22 +41,47 @@ if __name__ == '__main__':
         default='./checks',
         help='Path to checks to execute'
     )
+    parser.add_argument(
+        '-f',
+        '--format',
+        nargs='?',
+        default='%(asctime)s | %(levelname)-7s | %(script)-20s | %(message)s',
+        help=(
+            'Override default logging format.'
+            ' Custom supported attributes(s): script.'
+            ' See "https://docs.python.org/2/library/logging.html"'
+        )
+    )
     args = parser.parse_args()
 
     level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(
-        level=level,
-        format='%(asctime)s | %(levelname)-7s | %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        level=level, format=args.format, datefmt='%Y-%m-%d %H:%M:%S'
     )
-    logging.debug(
+    log = LoggerAdapter(logging.getLogger(), {'script': ''})
+    log.debug(
         'Logging initialized at level {}'.format(
             logging.getLevelName(logging.getLogger().getEffectiveLevel())
         )
     )
 
     if not os.path.isdir(args.checks):
-        logging.error("{} is not an existing directory".format(args.checks))
+        log.error('"{}" is not an existing directory'.format(args.checks))
         sys.exit(1)
 
-    sys.exit(0 if Checker().check(args.checks, args.debug) else 2)
+    found_file = False
+    error = False
+    check = Checker(args.debug)
+    for path, _, files in os.walk(args.checks):
+        for file in files:
+            found_file = True
+            if not check.check(os.path.join(path, file)):
+                error = True
+
+    if not found_file:
+        log.error('"{}" contains no checks'.format(args.checks))
+        sys.exit(1)
+    elif error:
+        sys.exit(2)
+    else:
+        sys.exit(0)

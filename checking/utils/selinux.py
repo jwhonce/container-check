@@ -11,6 +11,7 @@ from .pathname import Pathname
 
 class SelinuxError(OSError):
     """Report Selinux Context Error"""
+    pass
 
 
 class Selinux(object):

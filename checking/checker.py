@@ -4,9 +4,23 @@ import os
 import subprocess
 import sys
 
+import loggeradapter
+
 
 class Checker(object):
     """Driver for checking host support for container tools"""
+
+    def __init__(self, debug):
+        self._debug = debug
+        self._env = {}
+
+        # build environment to run check in
+        pythonpath = copy.deepcopy(sys.path)
+        pythonpath.append('.')
+        self._env['PYTHONPATH'] = os.pathsep.join(pythonpath)
+
+        if debug:
+            self._env['DEBUG'] = 'True'
 
     def _call_check(self, cmd, **kw):
         """Execute command and capture results"""
@@ -26,60 +40,39 @@ class Checker(object):
             out.strip().splitlines(), err.strip().splitlines(), pid.returncode
         )
 
-    def check(self, path=None, debug=False):
+    def _is_exec(self, p):
+        """Does the given path point to an executable?"""
+        return os.path.isfile(p) and os.access(p, os.X_OK)
+
+    def check(self, path):
         """Execute checks found at path and report results"""
 
-        files = os.listdir(path)
-        if not files:
-            logging.error("{} contains no checks".format(path))
-            return False
-
-        filename_len = len(max(files, key=len))
-
-        def is_exec(p):
-            """Does the given path point to an executable?"""
-            return os.path.isfile(p) and os.access(p, os.X_OK)
-
-        # build environment to run check in
-        env = {}
-        pythonpath = copy.deepcopy(sys.path)
-        pythonpath.append('.')
-        env['PYTHONPATH'] = os.pathsep.join(pythonpath)
-
-        if debug:
-            env['DEBUG'] = 'True'
-
         error = False
-        for file in files:
-            cmd = os.path.join(path, file)
+        log = loggeradapter.LoggerAdapter(
+            logging.getLogger(), {'script': os.path.basename(path)}
+        )
 
-            def fmt(msg, prefix=''):
-                """Capture details for logging"""
-                return '{:{w}} | {}{}'.format(
-                    file, prefix, msg, w=filename_len
-                )
+        if not self._is_exec(path):
+            log.warning('"{}" is not executable'.format(path))
+        else:
+            out, err, rc = self._call_check(path, env=self._env)
 
-            if not is_exec(cmd):
-                logging.warn(fmt('Is not executable'))
+            if rc == 0:
+                if not out:
+                    out = ['Completed successfully']
             else:
-                out, err, rc = self._call_check(cmd, env=env)
+                error = True
+                if not err:
+                    err = ['Failed with return code: {}'.format(rc)]
+            log.debug('{} return code: {}'.format(path, rc))
 
-                if rc == 0:
-                    if not out:
-                        out = ['Completed successfully']
-                else:
-                    error = True
-                    if not err:
-                        err = ['Failed with return code: {}'.format(rc)]
-                logging.debug('{} return code: {}'.format(cmd, rc))
+            if err:
+                log.error(err[0])
+                for line in err[1:]:
+                    log.error('+- {}'.format(line))
 
-                if err:
-                    logging.error(fmt(err[0]))
-                    for line in err[1:]:
-                        logging.error(fmt(line, '+- '))
-
-                if out:
-                    logging.info(fmt(out[0]))
-                    for line in out[1:]:
-                        logging.info(fmt(line, '+- '))
+            if out:
+                log.info(out[0])
+                for line in out[1:]:
+                    log.info('+- {}'.format(line))
         return not error
