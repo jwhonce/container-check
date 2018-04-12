@@ -3,7 +3,7 @@
 import errno
 import sys
 
-from checking.utils import Rpm, Selinux, log_error, log_info
+from checking.utils import Audit, Rpm, Selinux, log_error, log_info
 
 # will be set to True on any failed confirm
 error = False
@@ -38,8 +38,16 @@ for path in FILES:
     except OSError as e:
         log_error(e)
         error = True
-        continue
 
 confirm(selinux.isenabled, 'selinux enforcing is OFF')
+
+for avc in Audit('/var/log/audit/audit.log').avc():
+    # Make avc look like ausearch output
+    log_error((
+        'time->{timestamp} type={type} {seresult} {{{seperms}}}'
+        ' for pid={pid} comm={comm}'
+        ' scontext={scontext} tcontext={tcontext}'
+        ' tclass={tclass} permissive={permissive}'
+    ).format(**avc))
 
 sys.exit(0 if not error else 1)

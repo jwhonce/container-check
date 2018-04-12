@@ -5,7 +5,7 @@ WORKDIR /usr/src/app
 LABEL \
         License="Apache-2.0"
 
-ENV PKG_LIST container-selinux python2-pip libselinux-python dbus-python
+ENV PKG_LIST container-selinux python2-pip libselinux-python dbus-python audit-libs-python
 
 RUN \
     yum install --setopt=tsflags=nodocs -y epel-release && \

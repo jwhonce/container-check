@@ -3,12 +3,21 @@
 import subprocess
 import sys
 
+from .audit import Audit
 from .pathname import Pathname
 from .rpm import Rpm, RpmError
 from .selinux import Selinux, SelinuxError
 from .systemd import Systemd
 
-__all__ = ['Selinux', 'SelinuxError', 'Rpm', 'RpmError', 'Systemd', 'Pathname']
+__all__ = [
+    'Audit',
+    'Pathname',
+    'Rpm',
+    'RpmError',
+    'Selinux',
+    'SelinuxError',
+    'Systemd',
+]
 
 
 def read_config(path):
@@ -30,6 +39,7 @@ def read_config(path):
 def log_error(msg):
     """Helper to log error text"""
     sys.stderr.write(str(msg) + '\n')
+    sys.stderr.flush()
 
 
 def log_info(msg):
