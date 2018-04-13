@@ -5,6 +5,7 @@ import subprocess
 import sys
 
 from .audit import Audit
+from .checked import Checked
 from .pathname import Pathname
 from .rpm import Rpm
 from .selinux import Selinux
@@ -12,6 +13,7 @@ from .systemd import Systemd
 
 __all__ = [
     'Audit',
+    'Checked',
     'Pathname',
     'Rpm',
     'Selinux',
@@ -19,7 +21,7 @@ __all__ = [
 ]
 
 
-def read_config(path):
+def resolve_config(path):
     """Return options from shell formatted configuration file"""
     try:
         cmd = 'set -o allexport; . {}; env'.format(path)
@@ -35,7 +37,7 @@ def read_config(path):
         }
 
 
-def strip_comments(path):
+def strip_config(path):
     """Return lines stripped of comments from configuration file"""
     lines = []
     try:

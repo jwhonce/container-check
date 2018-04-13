@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+
+import toml
+
+from checking.utils import Checked, Pathname, Rpm, Selinux
+
+FILES = []
+with Checked() as (confirm, error):
+    with Rpm('skopeo-containers') as rpm:
+        if rpm.verify():
+            FILES.extend(rpm.files)
+        else:
+            error(True)
+
+    if not Selinux().verify(*FILES):
+        error(True)
+
+    storage_conf = Pathname('/etc/containers/storage.conf')
+    storage_toml = toml.load(storage_conf)
+
+    confirm(
+        storage_toml['storage']['driver'] == 'overlay',
+        'Storage driver "overlay" recommended in production not "{}" in "{}"'.
+        format(storage_toml['storage']['driver'], storage_conf.relpath)
+    )
+
+    confirm(
+        storage_toml['storage']['runroot'] == '/var/run/containers/storage',
+        'Review storage runroot, "{}" is not the default in "{}"'.format(
+            storage_toml['storage']['runroot'], storage_conf.relpath
+        )
+    )
+
+    confirm(
+        storage_toml['storage']['graphroot'] == '/var/lib/containers/storage',
+        'Review storage graphroot, "{}" is not the default in "{}"'.format(
+            storage_toml['storage']['graphroot'], storage_conf.relpath
+        )
+    )
+
+    confirm(
+        storage_toml['storage']['options'].get('override_kernel_check',
+                                               '').lower() == 'true',
+        'Storage Option "override_kernel_check" should be "true" in "{}"'.
+        format(storage_conf.relpath)
+    )
+
+    registries_conf = Pathname('/etc/containers/registries.conf')
+    registries_toml = toml.load(registries_conf)
+
+    val = 'registry.access.redhat.com'
+    confirm(
+        set(registries_toml['registries']['search'].get('registries',
+                                                        [])).issuperset([val]),
+        '"{}" should be included for "{}" in "{}"'.format(
+            val, '[registries.search] registries', registries_conf.relpath
+        )
+    )

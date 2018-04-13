@@ -25,7 +25,15 @@ class Selinux(object):
         except (OSError, IOError):
             return False
 
-    def verify(self, path):
+    def verify(self, *args, **kwargs):
+        passed = True
+        for arg in args:
+            # Extra variable to stop short-circuit
+            p = self._verify(arg)
+            passed = passed and p
+        return passed
+
+    def _verify(self, path):
         """Verify the selinux context on given path is as expected"""
         fn = Pathname(path, self._prefix)
         try:

@@ -1,21 +1,15 @@
 #!/usr/bin/env python
 
-import sys
+from checking.utils import Checked, Rpm, Selinux
 
-from checking.utils import Rpm, Selinux
-
-# will be set to True on any failed confirm
-error = False
 FILES = []
 
-with Rpm('runc') as rpm:
-    if rpm.verify():
-        FILES.extend(rpm.files)
-    else:
-        error = True
+with Checked() as (confirm, error):
+    with Rpm('runc') as rpm:
+        if rpm.verify():
+            FILES.extend(rpm.files)
+        else:
+            error(True)
 
-selinux = Selinux()
-for path in FILES:
-    error |= not selinux.verify(path)
-
-sys.exit(0 if not error else 1)
+    if not Selinux().verify(*FILES):
+        error(True)
