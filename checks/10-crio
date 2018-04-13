@@ -4,7 +4,8 @@ import sys
 
 import toml
 
-from checking.utils import Pathname, Rpm, Selinux, Systemd, log_error
+from checking.utils import (Pathname, Rpm, Selinux, Systemd, log_error,
+                            strip_comments)
 
 # will be set to True on any failed confirm
 error = False
@@ -61,4 +62,21 @@ confirm(
         crio_conf.relpath
     )
 )
+
+crio_umount_conf = Pathname(
+    '/usr/share/oci-umount/oci-umount.d/crio-umount.conf'
+)
+umounts = strip_comments(crio_umount_conf)
+
+confirm(
+    len(umounts),
+    'Missing path(s) to auto-unmount in containers to prevent busy-locks'
+)
+
+var = ['/var/run/containers/*', '/var/lib/containers/storage/*']
+confirm(
+    set(var).issubset(umounts),
+    '"{}" should be included in {}'.format(var, crio_umount_conf.relpath)
+)
+
 sys.exit(0 if not error else 1)

@@ -1,5 +1,6 @@
 """Helper Classes for python checks"""
 
+import re
 import subprocess
 import sys
 
@@ -32,6 +33,22 @@ def read_config(path):
             for k, v in
             (x.split('=', 1) for x in out.splitlines() if '=' in x)
         }
+
+
+def strip_comments(path):
+    """Return lines stripped of comments from configuration file"""
+    lines = []
+    try:
+        with open(path, 'r') as f:
+            data = f.readlines()
+    except IOError as e:
+        sys.stderr.write(e.message + '\n')
+
+    for line in data:
+        lo = re.sub('^ *#.*', '', line.strip())
+        if len(lo) > 0:
+            lines.append(lo)
+    return lines
 
 
 def log_error(msg):
