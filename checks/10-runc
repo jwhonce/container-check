@@ -1,30 +1,21 @@
 #!/usr/bin/env python
 
-import errno
 import sys
 
-from checking.utils import Rpm, Selinux, log_error
+from checking.utils import Rpm, Selinux
 
 # will be set to True on any failed confirm
 error = False
 FILES = []
-try:
-    rpm = Rpm('runc')
-    rpm.verify()
-    FILES = rpm.files
-except OSError as e:
-    log_error(e.strerror)
-    if e.errno == errno.ENOENT:
+
+with Rpm('runc') as rpm:
+    if rpm.verify():
+        FILES.extend(rpm.files)
+    else:
         error = True
 
 selinux = Selinux()
 for path in FILES:
-    try:
-        # Side effect: The existance of the 'path' will also be verified
-        selinux.verify(path)
-    except OSError as e:
-        log_error(e)
-        error = True
-        continue
+    error |= not selinux.verify(path)
 
 sys.exit(0 if not error else 1)

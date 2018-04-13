@@ -5,17 +5,15 @@ import sys
 
 from .audit import Audit
 from .pathname import Pathname
-from .rpm import Rpm, RpmError
-from .selinux import Selinux, SelinuxError
+from .rpm import Rpm
+from .selinux import Selinux
 from .systemd import Systemd
 
 __all__ = [
     'Audit',
     'Pathname',
     'Rpm',
-    'RpmError',
     'Selinux',
-    'SelinuxError',
     'Systemd',
 ]
 

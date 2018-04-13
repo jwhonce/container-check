@@ -32,13 +32,15 @@ class Checker(object):
                                    close_fds=True,
                                    env=kw['env'])
             out, err = pid.communicate()
+            return (
+                out.strip().splitlines(),
+                err.strip().splitlines(),
+                pid.returncode,
+            )
         except OSError as e:
             return [], [e.strerror], e.errno
         except ValueError as e:
             return [], [e.message], os.errno.EINVAL
-        return (
-            out.strip().splitlines(), err.strip().splitlines(), pid.returncode
-        )
 
     def _is_exec(self, p):
         """Does the given path point to an executable?"""

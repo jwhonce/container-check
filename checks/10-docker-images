@@ -2,6 +2,7 @@
 
 import re
 import sys
+from contextlib import closing
 
 import docker
 
@@ -20,27 +21,25 @@ def confirm(boolean, message):
 re_update = re.compile('update', re.IGNORECASE)
 re_add = re.compile('add', re.IGNORECASE)
 
-client = docker.DockerClient(
-    base_url='unix://host/var/run/docker.sock', version='auto'
-)
+with closing(docker.DockerClient(base_url='unix://host/var/run/docker.sock',
+                                 version='auto')) as client:
+    for image in client.images.list():
+        id = image.tags[0] if image.tags else image.short_id
 
-for image in client.images.list():
-    id = image.tags[0] if image.tags else image.short_id
-
-    confirm(
-        image.attrs['Config'].get('Healthcheck', ''),
-        'Image "{}" missing a healthcheck'.format(id)
-    )
-
-    # Pass judgement on how image was built
-    for event in image.history():
         confirm(
-            not re_update.search(event['CreatedBy']),
-            'Image "{}" built using "UPDATE"'.format(id)
+            image.attrs['Config'].get('Healthcheck', ''),
+            'Image "{}" missing a healthcheck'.format(id)
         )
-        confirm(
-            not re_add.search(event['CreatedBy']),
-            'Image "{}" built using "ADD"'.format(id)
-        )
+
+        # Pass judgement on how image was built
+        for event in image.history():
+            confirm(
+                not re_update.search(event['CreatedBy']),
+                'Image "{}" built using "UPDATE"'.format(id)
+            )
+            confirm(
+                not re_add.search(event['CreatedBy']),
+                'Image "{}" built using "ADD"'.format(id)
+            )
 
 sys.exit(0 if not error else 1)

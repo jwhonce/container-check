@@ -8,15 +8,16 @@ class Pathname(str):
         elements = [prefix] if prefix else []
 
         if isinstance(path, (list, tuple)):
-            elements.expand(list(path))
+            elements.extend(map(lambda e: e.strip(os.sep), path))
         else:
-            elements.append(path)
-        full = os.sep.join(elements)
+            elements.append(path.strip(os.sep))
+        # now it's "safe" to join all the path elements
+        full = os.path.join(*elements)
 
-        o = super(Pathname, cls).__new__(cls, full)
-        o._path = path
-        o._prefix = prefix
-        return o
+        obj = super(Pathname, cls).__new__(cls, full)
+        obj._path = path
+        obj._prefix = prefix
+        return obj
 
     @property
     def relpath(self):

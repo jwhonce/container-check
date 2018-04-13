@@ -28,9 +28,11 @@ class Systemd(object):
             proxy, dbus_interface='org.freedesktop.DBus.Properties'
         )
 
+    @property
     def isenabled(self):
         return self.get('UnitFileState') == 'enabled'
 
+    @property
     def isactive(self):
         return self.get('ActiveState') == 'active'
 

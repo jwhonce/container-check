@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import errno
 import sys
+from contextlib import closing
 
 import docker
 
@@ -10,14 +10,6 @@ from checking.utils import (Pathname, Rpm, Selinux, Systemd, log_error,
 
 # will be set to True on any failed confirm
 error = False
-
-
-def confirm(boolean, message):
-    global error
-    if not boolean:
-        error = True
-        log_error(message)
-
 
 PACKAGES = [
     'docker-client',
@@ -28,29 +20,27 @@ PACKAGES = [
 FILES = []
 # Check that packages on the host are as expected
 for pkg in PACKAGES:
-    try:
-        rpm = Rpm(pkg)
-        rpm.verify()
-        FILES.extend(rpm.files)
-    except OSError as e:
-        log_error(e.strerror)
-        if e.errno == errno.ENOENT:
+    with Rpm(pkg) as rpm:
+        if rpm.verify():
+            FILES.extend(rpm.files)
+        else:
             error = True
 
 selinux = Selinux()
 for path in FILES:
-    try:
-        # Side effect: The existance of the 'path' will also be verified
-        selinux.verify(path)
-    except OSError as e:
-        log_error(e)
-        error = True
-        continue
+    error |= not selinux.verify(path)
 
-client = docker.DockerClient(
-    base_url='unix://host/var/run/docker.sock', version='auto'
-)
-info = client.info()
+
+def confirm(boolean, message):
+    global error
+    if not boolean:
+        error = True
+        log_error(message)
+
+
+with closing(docker.DockerClient(base_url='unix://host/var/run/docker.sock',
+                                 version='auto')) as client:
+    info = client.info()
 
 log_info('package version {}'.format(info['PkgVersion']))
 
@@ -135,10 +125,10 @@ confirm(
 )
 
 service = Systemd('docker.service')
-confirm(service.isactive(), 'docker.service is not active')
-confirm(service.isenabled(), 'docker.service is not enabled')
+confirm(service.isactive, 'docker.service is not active')
+confirm(service.isenabled, 'docker.service is not enabled')
 
 timer = Systemd('docker-cleanup.timer')
-confirm(timer.isactive(), 'docker-cleanup.timer is not active')
+confirm(timer.isactive, 'docker-cleanup.timer is not active')
 
 sys.exit(0 if not error else 1)

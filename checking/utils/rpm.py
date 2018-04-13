@@ -1,34 +1,36 @@
 import copy
-import errno
 import subprocess
-
-
-class RpmError(OSError):
-    """Report RPM Error"""
-    pass
+import sys
 
 
 class Rpm(object):
     """ Helper for rpm commands"""
-    not_found = 'Package "{}" is not installed/found on host'
-    not_valid = 'Files in package "{}" failed validation:\n{}'
+    not_found = 'Package "{}" is not installed/found on host\n'
+    not_valid = 'Files in package "{}" failed validation:\n{}\n'
 
     def __init__(self, name, prefix='/host'):
         self._name = name
         self._prefix = prefix
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
     def _query(self, command):
         try:
-            return subprocess.check_output(command, close_fds=True).strip()
+            return subprocess.check_output(
+                command, close_fds=True
+            ).strip(), None
         except subprocess.CalledProcessError as e:
             if e.output.find('is not installed') >= 0:
-                raise RpmError(
-                    errno.ENOENT, Rpm.not_found.format(self._name), self._name
+                sys.stderr.write(Rpm.not_found.format(self._name))
+            else:
+                sys.stderr.write(
+                    Rpm.not_valid.format(self._name, e.output.strip())
                 )
-            raise RpmError(
-                errno.EINVAL,
-                Rpm.not_valid.format(self._name, e.output.strip()), self._name
-            )
+            return None, e
 
     def _build_command(self, command):
         c = copy.deepcopy(command)
@@ -40,18 +42,19 @@ class Rpm(object):
     def verify(self):
         """Verify files against rpm database, See rpm manpage."""
         c = self._build_command(['rpm', '--verify'])
-        self._query(c)
-        return True
+        _, e = self._query(c)
+        return e is None
 
     @property
     def files(self):
         """Obtain files  for package"""
         c = self._build_command(['rpm', '--query', '--list'])
-        o = self._query(c)
-        return o.strip().splitlines()
+        o, e = self._query(c)
+        return o.splitlines() if e is None else []
 
     @property
     def nvr(self):
         """Obtain (name, version, release) for package"""
         c = self._build_command(['rpm', '--query'])
-        return self._query(c)
+        o, e = self._query(c)
+        return o if e is None else None

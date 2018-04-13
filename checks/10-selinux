@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import errno
 import sys
 
 from checking.utils import Audit, Rpm, Selinux, log_error, log_info
@@ -8,7 +7,20 @@ from checking.utils import Audit, Rpm, Selinux, log_error, log_info
 # will be set to True on any failed confirm
 error = False
 FILES = []
-rpm = None
+
+# pull container-selinux from container
+with Rpm('container-selinux', prefix=None) as rpm:
+    if rpm.verify():
+        FILES.extend(rpm.files)
+
+        log_info('System of record: package ' + rpm.nvr)
+    else:
+        error = True
+
+# verify files on the host
+selinux = Selinux()
+for path in FILES:
+    error |= not selinux.verify(path)
 
 
 def confirm(boolean, message):
@@ -18,36 +30,18 @@ def confirm(boolean, message):
         log_error(message)
 
 
-# If package is not installed fail fast and early
-try:
-    rpm = Rpm('container-selinux', prefix=None)
-    rpm.verify()
-    FILES = rpm.files
-
-    log_info('System of record: package ' + rpm.nvr)
-except OSError as e:
-    log_error(e.strerror)
-    if e.errno == errno.ENOENT:
-        error = True
-
-selinux = Selinux()
-for path in FILES:
-    try:
-        # Side effect: The existance of the 'path' will also be verified
-        selinux.verify(path)
-    except OSError as e:
-        log_error(e)
-        error = True
-
 confirm(selinux.isenabled, 'selinux enforcing is OFF')
 
-for avc in Audit('/var/log/audit/audit.log').avc():
-    # Make avc look like ausearch output
-    log_error((
-        'time->{timestamp} type={type} {seresult} {{{seperms}}}'
-        ' for pid={pid} comm={comm}'
-        ' scontext={scontext} tcontext={tcontext}'
-        ' tclass={tclass} permissive={permissive}'
-    ).format(**avc))
+try:
+    for avc in Audit('/var/log/audit/audit.log').avc():
+        # Make avc look like ausearch output
+        log_error((
+            'time->{timestamp} type={type} {seresult} {{{seperms}}}'
+            ' for pid={pid} comm={comm}'
+            ' scontext={scontext} tcontext={tcontext}'
+            ' tclass={tclass} permissive={permissive}'
+        ).format(**avc))
+except (IOError, OSError) as e:
+    log_error(e)
 
 sys.exit(0 if not error else 1)

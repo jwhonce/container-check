@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 import auparse
 import datetime
+import os
 
 from .pathname import Pathname
 
@@ -9,11 +10,19 @@ from .pathname import Pathname
 class Audit(object):
     def __init__(self, path, prefix='/host'):
         self._logfile = Pathname(path, prefix)
-        self._parser = auparse.AuParser(auparse.AUSOURCE_FILE, self._logfile)
 
         epoch = datetime.datetime.utcfromtimestamp(0)
         now = datetime.datetime.now() - datetime.timedelta(days=30)
         self._30day_delta = (now - epoch).total_seconds()
+
+        try:
+            self._parser = auparse.AuParser(
+                auparse.AUSOURCE_FILE, self._logfile
+            )
+        except IOError as e:
+            raise IOError(e.errno, os.strerror(e.errno), self._logfile.relpath)
+        except OSError as e:
+            raise OSError(e.errno, os.strerror(e.errno), self._logfile.relpath)
 
     def avc(self, by_time=True):
         self._parser.search_add_item(
