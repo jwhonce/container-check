@@ -20,23 +20,25 @@ OPTIONS = {
 }
 
 if __name__ == '__main__':
+    """Run unit tests with coverage."""
     cov = coverage.coverage(**OPTIONS)
 
-    cov.start()
-    """Runs the unit tests with coverage."""
-    tests = unittest.TestLoader().discover('checking')
-    result = unittest.TextTestRunner(verbosity=1).run(tests)
+    try:
+        cov.start()
+        suite = unittest.TestLoader().discover('checking')
+        result = unittest.TextTestRunner(verbosity=1).run(suite)
 
-    if result.wasSuccessful():
-        cov.stop()
-        cov.save()
-        print('Coverage Summary: {}'.format(coverage.version.__version__))
-        cov.report(show_missing=True)
+        if result.wasSuccessful():
+            cov.stop()
+            print(
+                'Coverage (v{}) Summary:'.format(coverage.version.__version__)
+            )
+            cov.report(show_missing=True)
 
-        # this doesn't work :(
-        covdir = '/host/var/tmp/coverage'
-        print cov.html_report(directory=covdir, title='ContainerCheck')
-        print('HTML version: file://%s/index.html' % covdir)
+            covdir = '/host/var/tmp/coverage'
+            cov.html_report(directory=covdir)
+            print('HTML version: file://%s/index.html' % covdir)
+            sys.exit(0)
+    finally:
         cov.erase()
-        sys.exit(0)
     sys.exit(1)

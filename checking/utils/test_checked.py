@@ -18,7 +18,7 @@ class TestChecked(unittest.TestCase):
 
     def test_constr(self):
         # verify context manager protocol
-        for key in ['__enter__', '__exit__']:
+        for key in ('__enter__', '__exit__'):
             self.assertTrue(
                 hasattr(self.checked, key)
                 and callable(getattr(self.checked, key)), (

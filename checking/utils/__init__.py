@@ -24,22 +24,25 @@ __all__ = [
 def resolve_config(path):
     """Return options from shell formatted configuration file"""
     try:
-        cmd = 'set -o allexport; . {}; env'.format(path)
-        out = subprocess.check_output(cmd, shell=True)
-    except (subprocess.CalledProcessError, OSError) as e:
-        sys.stderr.write(e.message + '\n')
-        return {}
+        cmd = 'set -o allexport; . {} >&/dev/null; env'.format(path)
+        out = subprocess.check_output(cmd, close_fds=True, shell=True, env={})
+    except (subprocess.CalledProcessError):
+        env = {}
     else:
-        return {
+        env = {
             k: v
             for k, v in
             (x.split('=', 1) for x in out.splitlines() if '=' in x)
         }
+        for k in ('SHLVL', 'PWD', '_'):
+            env.pop(k, None)
+    finally:
+        return env
 
 
 def strip_config(path):
     """Return lines stripped of comments from configuration file"""
-    lines = []
+    lines, data = [], []
     try:
         with open(path, 'r') as f:
             data = f.readlines()
@@ -47,18 +50,18 @@ def strip_config(path):
         sys.stderr.write(e.message + '\n')
 
     for line in data:
-        lo = re.sub('^ *#.*', '', line.strip())
-        if len(lo) > 0:
-            lines.append(lo)
+        cooked = re.sub('^ *#.*', '', line.strip())
+        if len(cooked) > 0:
+            lines.append(cooked)
     return lines
 
 
-def log_error(msg):
+def log_error(msg):  # pragma: no cover
     """Helper to log error text"""
     sys.stderr.write(str(msg) + '\n')
     sys.stderr.flush()
 
 
-def log_info(msg):
+def log_info(msg):  # pragma: no cover
     """Helper to log informational text"""
     sys.stdout.write(str(msg) + '\n')

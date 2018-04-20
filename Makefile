@@ -20,10 +20,6 @@ debug:
 
 test:
 	docker run ${VOLUMES} \
-	-it --privileged --rm --name container-check container-check python -m unittest discover -v
-
-coverage:
-	docker run ${VOLUMES} \
 	-it --privileged --rm --name container-check container-check ./checking/unittest_coverage.py
 
 version:

@@ -14,7 +14,7 @@ class Systemd(object):
         # No duplicate separators allowed in dbus path
         path = '/'.join(
             t.strip('/')
-            for t in ['unix:path=', prefix, '/var/run/dbus/system_bus_socket']
+            for t in ('unix:path=', prefix, '/var/run/dbus/system_bus_socket')
         )
         bus = dbus.bus.BusConnection(path)
 

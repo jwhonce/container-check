@@ -31,11 +31,16 @@ class TestChecker(unittest.TestCase):
     @patch.object(Checker, '_is_exec', return_value=True, auto_spec=True)
     @patch('loggeradapter.LoggerAdapter')
     def test_check_true(self, mock_logger, mock_is_exec):
-        mock_popen = self._mock_popen('jokes', '', 0)
-        setattr(subprocess, 'Popen', lambda *args, **kwargs: mock_popen)
-        mock_logger.return_value = mock_logger
+        try:
+            popen = getattr(subprocess, 'Popen')
+            mock_popen = self._mock_popen('jokes', '', 0)
+            setattr(subprocess, 'Popen', lambda *args, **kwargs: mock_popen)
+            mock_logger.return_value = mock_logger
 
-        verify = Checker(False).check('/mock/jester')
+            verify = Checker(False).check('/mock/jester')
+        finally:
+            setattr(subprocess, 'Popen', popen)
+
         mock_logger.error.assert_not_called()
         mock_logger.info.assert_called_with('jokes')
         mock_is_exec.assert_called_once_with('/mock/jester')
@@ -44,11 +49,16 @@ class TestChecker(unittest.TestCase):
     @patch.object(Checker, '_is_exec', return_value=True, auto_spec=True)
     @patch('loggeradapter.LoggerAdapter')
     def test_check_false(self, mock_logger, mock_is_exec):
-        mock_popen = self._mock_popen('', 'jests', 666)
-        setattr(subprocess, 'Popen', lambda *args, **kwargs: mock_popen)
-        mock_logger.return_value = mock_logger
+        try:
+            popen = getattr(subprocess, 'Popen')
+            mock_popen = self._mock_popen('', 'jests', 666)
+            setattr(subprocess, 'Popen', lambda *args, **kwargs: mock_popen)
+            mock_logger.return_value = mock_logger
 
-        verify = Checker(False).check('/mock/jester')
+            verify = Checker(False).check('/mock/jester')
+        finally:
+            setattr(subprocess, 'Popen', popen)
+
         mock_logger.error.assert_called_with('jests')
         mock_logger.info.assert_not_called()
         mock_is_exec.assert_called_once_with('/mock/jester')
