@@ -5,7 +5,7 @@ VOLUMES=\
 -v /run:/host/run:ro \
 -v /sys:/host/sys:ro \
 -v /usr:/host/usr:ro \
--v /var:/host/var:ro
+-v /var:/host/var:rw
 
 build:
 	docker build -t container-check .
@@ -16,23 +16,23 @@ run:
 
 debug:
 	docker run ${VOLUMES} \
-	-it --privileged --rm --name container-check container-check ./container-check --debug
+	-it --privileged --rm --name container-check container-check ./container_check --debug
 
-bad-dir:
+test:
 	docker run ${VOLUMES} \
-	-it --privileged --rm --name container-check container-check ./container-check --checks=/no/dir/here
+	-it --privileged --rm --name container-check container-check python -m unittest discover -v
 
-format:
+coverage:
 	docker run ${VOLUMES} \
-	-it --privileged --rm --name container-check container-check ./container-check --format='%(asctime)s | %(levelname)-7s | %(message)s'
+	-it --privileged --rm --name container-check container-check ./checking/unittest_coverage.py
 
 version:
 	docker run \
-	-it --privileged --rm --name container-check container-check ./container-check --version
+	-it --privileged --rm --name container-check container-check ./container_check --version
 
 help: build
 	docker run \
-	-it --privileged --rm --name container-check container-check ./container-check --help
+	-it --privileged --rm --name container-check container-check ./container_check --help
 
 size:
 	@docker image list container-check --format 'Current Size: {{.Repository}} {{.Size}}\n'

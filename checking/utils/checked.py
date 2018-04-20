@@ -2,6 +2,8 @@ import sys
 
 
 class Checked(object):
+    """Context Manager for running checks"""
+
     def __init__(self):
         self._error = False
 
@@ -22,14 +24,12 @@ class Checked(object):
             sys.stderr.flush()
 
     def __enter__(self):
-        return (
-            self.confirm, lambda v: setattr(self, 'error', v)
-        )
+        return (self.confirm, lambda v: setattr(self, 'error', v))
 
-    def __exit__(self, exc_type, value, traceback):
-        if traceback:
+    def __exit__(self, type, value, traceback):
+        if type:
             sys.stderr.write(
-                'Type {}({})\n{}'.format(exc_type, value, traceback)
+                '{}({})\n{}\n'.format(type, str(value), traceback)
             )
 
         sys.stderr.flush()

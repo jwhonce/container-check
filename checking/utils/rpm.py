@@ -43,7 +43,7 @@ class Rpm(object):
         """Verify files against rpm database, See rpm manpage."""
         c = self._build_command(['rpm', '--verify'])
         _, e = self._query(c)
-        return e is None
+        return True if e is None else False
 
     @property
     def files(self):

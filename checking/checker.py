@@ -22,6 +22,10 @@ class Checker(object):
         if debug:
             self._env['DEBUG'] = 'True'
 
+    @property
+    def env(self):
+        return copy.deepcopy(self._env)
+
     def _call_check(self, cmd, **kw):
         """Execute command and capture results"""
 
@@ -32,6 +36,7 @@ class Checker(object):
                                    close_fds=True,
                                    env=kw['env'])
             out, err = pid.communicate()
+
             return (
                 out.strip().splitlines(),
                 err.strip().splitlines(),
@@ -56,6 +61,7 @@ class Checker(object):
 
         if not self._is_exec(path):
             log.warning('"{}" is not executable'.format(path))
+            error = True
         else:
             out, err, rc = self._call_check(path, env=self._env)
 

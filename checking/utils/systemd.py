@@ -30,18 +30,26 @@ class Systemd(object):
 
     @property
     def isenabled(self):
+        """Has service been enabled"""
         return self.get('UnitFileState') == 'enabled'
 
     @property
     def isactive(self):
+        """Has service been started"""
         return self.get('ActiveState') == 'active'
 
-    def get(self, key):
-        return self.__getitem__(key)
+    def get(self, key, default=None):
+        """Retrieve value for Services' key from Systemd"""
+        return self.__getitem__(key, default)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key, default=None):
         self._load_properties()
-        return str(self._properties[key])
+        try:
+            return self._properties[key]
+        except KeyError:
+            if default:
+                return default
+            raise
 
     def __len__(self):
         self._load_properties()
