@@ -1,4 +1,5 @@
 import copy
+import os
 import subprocess
 import sys
 
@@ -13,12 +14,18 @@ class Rpm(object):
         self._prefix = prefix
 
     def __enter__(self):
+        """context manager protocol"""
         return self
 
     def __exit__(self, *args):
+        """context manager protocol"""
         pass
 
     def _query(self, command):
+        if os.environ.get('DEBUG', False):
+            sys.stdout.write('DEBUG: rpm query: {}\n'.format(command))
+            sys.stdout.flush()
+
         try:
             return subprocess.check_output(
                 command, close_fds=True
@@ -47,7 +54,7 @@ class Rpm(object):
 
     @property
     def files(self):
-        """Obtain files  for package"""
+        """Obtain files for package"""
         c = self._build_command(['rpm', '--query', '--list'])
         o, e = self._query(c)
         return o.splitlines() if e is None else []

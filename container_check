@@ -2,6 +2,7 @@
 """Command to verify host is configured correctly for container tools"""
 
 import argparse
+import curses
 import logging
 import os
 import sys
@@ -10,58 +11,73 @@ from checking import Checker, LoggerAdapter, __version__
 
 
 class Main(object):
-    @staticmethod
-    def get_parser():
-        class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
-            def __init__(
-                    self,
-                    prog,
-                    indent_increment=2,
-                    max_help_position=15,
-                    width=None
-            ):
-                super(HelpFormatter, self).__init__(
-                    prog=prog,
-                    indent_increment=indent_increment,
-                    max_help_position=15,
-                    width=width
-                )
+    @classmethod
+    def get_parser(cls):
+        class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter,
+                            argparse.RawDescriptionHelpFormatter):
+            """Combine provided formatters and set width to screen size"""
 
+            def __init__(self, *args, **kwargs):
+                if 'width' not in kwargs:
+                    kwargs['width'] = 80
+                    try:
+                        height, width = curses.initscr().getmaxyx()
+                        kwargs['width'] = width
+                    finally:
+                        curses.endwin()
+                super(HelpFormatter, self).__init__(*args, **kwargs)
+
+        help_epilog = """
+  Example(s):
+
+  $ export VOLUMES=\\
+    -v /etc:/host/etc:ro \\
+    -v /run:/host/run:ro \\
+    -v /sys:/host/sys:ro \\
+    -v /usr:/host/usr:ro \\
+    -v /var:/host/var:ro
+
+  $ container run...--privileged ${VOLUMES} ./container_check
+  $ container run...--privileged ${VOLUMES} ./container_check --debug
+  $ container run...--privileged ${VOLUMES} ./container_check \\
+    --checks ./checks:/host/checks
+"""
         parser = argparse.ArgumentParser(
             description='Command to verify container configuration on host',
             formatter_class=HelpFormatter,
             add_help=True,
-            epilog=None
+            epilog=help_epilog
         )
         parser.add_argument(
-            '-d', '--debug', action='store_true', help='Turn on debug logging'
+            '-d',
+            '--debug',
+            action='store_true',
+            help='Turn on logging of debugging events'
         )
         parser.add_argument(
-            '--version', action='version', version='%(prog)s ' + __version__
+            '--version', action='version', version='%(prog)s v' + __version__
         )
         parser.add_argument(
             '-c',
             '--checks',
-            nargs='?',
             default='./checks',
-            help='Path to checks to execute'
+            help='Path(s) to checks to execute. Formatted like system PATH.'
         )
         format = '%(asctime)s | %(levelname)-7s | %(script)-20s | %(message)s'
         parser.add_argument(
             '-f',
             '--format',
-            nargs='?',
             default=format,
             help=(
                 'Override default logging format.'
                 ' Custom supported attributes(s): script.'
-                ' See "https://docs.python.org/2/library/logging.html"'
+                ' See "https://docs.python.org/library/logging.html"'
             )
         )
         return parser
 
-    @staticmethod
-    def get_logger(args):
+    @classmethod
+    def get_logger(cls, args):
         level = logging.DEBUG if args.debug else logging.INFO
         logging.basicConfig(
             level=level, format=args.format, datefmt='%Y-%m-%d %H:%M:%S'
@@ -74,8 +90,8 @@ class Main(object):
         )
         return log
 
-    @staticmethod
-    def apply(args):
+    @classmethod
+    def apply(cls, args):
         found_file = False
         error = False
         for directory in args.checks.split(os.pathsep):

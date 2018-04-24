@@ -26,4 +26,4 @@ RUN \
     pip install --no-cache-dir -r requirements.txt && \
     rm -rf ~/.cache/pip/
 
-CMD [ "python", "./container-check" ]
+CMD [ "python", "./container_check" ]

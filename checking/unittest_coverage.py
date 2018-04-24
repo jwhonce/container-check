@@ -30,14 +30,16 @@ if __name__ == '__main__':
 
         if result.wasSuccessful():
             cov.stop()
-            print(
-                'Coverage (v{}) Summary:'.format(coverage.version.__version__)
-            )
+            print('\nCoverage Summary:\n')
             cov.report(show_missing=True)
 
-            covdir = '/host/var/tmp/coverage'
-            cov.html_report(directory=covdir)
-            print('HTML version: file://%s/index.html' % covdir)
+            # writing html report is optional depending on /host mounts
+            try:
+                covdir = '/host/var/tmp/coverage'
+                cov.html_report(directory=covdir)
+                print('HTML version: file://%s/index.html' % covdir)
+            except IOError:
+                pass
             sys.exit(0)
     finally:
         cov.erase()

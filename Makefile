@@ -5,7 +5,7 @@ VOLUMES=\
 -v /run:/host/run:ro \
 -v /sys:/host/sys:ro \
 -v /usr:/host/usr:ro \
--v /var:/host/var:rw
+-v /var:/host/var:ro
 
 build:
 	docker build -t container-check .
@@ -13,6 +13,10 @@ build:
 run:
 	docker run ${VOLUMES} \
 	-it --privileged --rm --name container-check container-check
+
+shell:
+	docker run ${VOLUMES} \
+	-it --privileged --rm --name container-check container-check /bin/bash -i
 
 debug:
 	docker run ${VOLUMES} \

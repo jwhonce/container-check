@@ -1,0 +1,82 @@
+.TH container_check 8 "2018/04/23" "Red Hat, Inc" "System Manager's Manual"
+.SH NAME
+container_check - Tool to verify host is configured to run containers
+.SH SYNOPSIS
+.B container_check
+[\fB\-\-checks\fR \fIPATH[:PATH]\fR]
+[\fB\-\-debug\fR \fI\fR]
+[\fB\-\-format\fR \fIFORMAT\fR]
+[\fB\-\-help\fR \fI\fR]
+[\fB\-\-version\fR \fI\fR]
+
+.SH DESCRIPTION
+Tool to verify host is configured for running containers.
+.br
+The tool executes each script/program found on the \fB--checks\fR path, output from the executable is captured and reported.
+.br
+When packaged in a container, Volumes are used to mount the host directories into the container for processing.
+The container will also require privileged access.
+Where possible the default checks use python bindings vs executing commands.
+Using \fB--checks\fR and an additional volume you make may either add additional custom checks or override all the defaults.
+.SH ENVIRONMENT
+.IP PYTHONPATH
+Set to make imports from python check scripts to find checking.utils as expected.
+.IP DEBUG
+Set if \fB--debug\fR was given.  Allows check scripts to log debugging events
+.SH OPTIONS
+.TP
+.BI \-c " PATH[:PATH]" \fR, "\fB \-\-checks" \fR=\fIPATH[:PATH]  \fR
+Path(s) to discover checks. Formatted like system PATH.  Default: ./checks
+.TP
+.BI \-d "" \fR, "\fB \-\-debug" \fR
+Log debugging events
+.TP
+.BI \-f " FORMAT" \fR, "\fB \-\-format" \fR=\fIFORMAT\fR
+Logging format to be used for reporting. See Python logging library.
+Default:
+.PP
+.nf
+.RS
+.ft C
+\'%(asctime)s | %(levelname)-7s | %(script)-20s | %(message)s\'
+.ft
+.RE
+.fi
+.PP
+where \fIscript\fR is the filename of the check being run.
+.TP
+.BI \-h "" \fR, "\fB \-\-help" \fR
+Print tool usage
+.TP
+.BI \-v " " \fR, "\fB \-\-version" \fR
+Print tool version
+.SH EXIT STATUS
+.IP 0
+No error were logged
+.IP 1
+There was an error logged in running the tool
+.IP 2
+The host failed to be validated
+.SH EXAMPLES
+.PP
+.nf
+.RS
+.ft C
+$ export VOLUMES=\\
+-v /etc:/host/etc:ro \\
+-v /run:/host/run:ro \\
+-v /sys:/host/sys:ro \\
+-v /usr:/host/usr:ro \\
+-v /var:/host/var:ro
+
+$ container run...--privileged ${VOLUMES} \fB./container_check\fR
+.ft
+.RE
+.fi
+.PP
+
+.SH "SEE ALSO"
+Python logging (https://docs.python.org/library/logging.html), podman(8)
+
+.SH HISTORY
+April 2018, written Jhon Honce (jhonce at redhat dot com)
