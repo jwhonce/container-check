@@ -2,9 +2,8 @@ import logging
 import unittest
 from StringIO import StringIO
 
-from mock import patch
-
 from checked import Checked
+from mock import patch
 
 
 class TestChecked(unittest.TestCase):
@@ -21,11 +20,9 @@ class TestChecked(unittest.TestCase):
         for key in ('__enter__', '__exit__'):
             self.assertTrue(
                 hasattr(self.checked, key)
-                and callable(getattr(self.checked, key)), (
-                    'Expected {}() is not available.'
-                    ' Checked failed context manager protocol'
-                ).format(key)
-            )
+                and callable(getattr(self.checked, key)),
+                ('Expected {}() is not available.'
+                 ' Checked failed context manager protocol').format(key))
 
     @patch('sys.stderr', new_callable=StringIO)
     @patch('sys.stdout', new_callable=StringIO)
@@ -47,14 +44,11 @@ class TestChecked(unittest.TestCase):
         confirm, error = self.checked.__enter__()
         error(True)
 
-        self.checked.__exit__(
-            Exception, Exception('unittest'),
-            [('<stdin>', 1, '<module>', None)]
-        )
+        self.checked.__exit__(Exception, Exception('unittest'),
+                              [('<stdin>', 1, '<module>', None)])
 
         self.assertEqual('', mock_out.getvalue())
-        self.assertEqual((
-            "<type 'exceptions.Exception'>(unittest)\n"
-            "[('<stdin>', 1, '<module>', None)]\n"
-        ), mock_err.getvalue())
+        self.assertEqual(("<type 'exceptions.Exception'>(unittest)\n"
+                          "[('<stdin>', 1, '<module>', None)]\n"),
+                         mock_err.getvalue())
         mock_exit.assert_called_once_with(1)

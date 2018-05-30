@@ -18,6 +18,6 @@ class TestPathname(unittest.TestCase):
         self.assertEqual(Pathname(['/a', 'b']).abspath, '/host/a/b')
 
     def test_prefix(self):
-        self.assertEqual(Pathname(['a', 'b'], '/var'), '/var/a/b')
-        self.assertEqual(Pathname(['a', 'b'], '/var').prefix, '/var')
+        self.assertEqual(Pathname(['a', 'b'], prefix='/var'), '/var/a/b')
+        self.assertEqual(Pathname(['a', 'b'], prefix='/var').prefix, '/var')
         self.assertEqual(Pathname(['a', 'b']).prefix, '/host')

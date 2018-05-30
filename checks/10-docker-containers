@@ -2,15 +2,14 @@
 
 from contextlib import closing
 
+from checking.utils import Checked
 from docker import DockerClient
 
-from checking.utils import Checked
-
 with Checked() as (confirm, _):
-    with closing(DockerClient(base_url='unix://host/var/run/docker.sock',
-                              version='auto')) as client:
+    with closing(
+            DockerClient(
+                base_url='unix://host/var/run/docker.sock',
+                version='auto')) as client:
         for container in client.containers.list():
-            confirm(
-                container.attrs['Config']['User'],
-                'Container "{}" running as "root"'.format(container.name)
-            )
+            confirm(container.attrs['Config']['User'],
+                    'Container "{}" running as "root"'.format(container.name))

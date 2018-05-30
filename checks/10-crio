@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import toml
-
 from checking.utils import (Checked, Pathname, Rpm, Selinux, Systemd,
                             strip_config)
 
@@ -24,47 +23,35 @@ with Checked() as (confirm, error):
     crio_conf = Pathname('/etc/crio/crio.conf')
     crio_toml = toml.load(crio_conf)
 
-    confirm(
-        crio_toml['crio']['runtime']['log_size_max'] > 0,
-        'Unbounded container log sizes are not recommended in production'
-    )
+    confirm(crio_toml['crio']['runtime']['log_size_max'] > 0,
+            'Unbounded container log sizes are not recommended in production')
 
     val = ["registry.access.redhat.com", "docker.io"]
     confirm(
         set(val).issubset(crio_toml['crio']['image'].get('registries', [])),
         'registries should contain "{}" for production in {}'.format(
-            val, crio_conf.relpath
-        )
-    )
+            val, crio_conf.relpath))
 
     var = 'plugin_dir'
     val = ['/usr/libexec/cni', '/opt/cni/bin']
-    confirm(
-        crio_toml['crio']['network'][var] in val,
-        'Expected either "{}" for {} in {}'.format(
-            val, var, crio_conf.relpath
-        )
-    )
+    confirm(crio_toml['crio']['network'][var] in val,
+            'Expected either "{}" for {} in {}'.format(val, var,
+                                                       crio_conf.relpath))
 
     confirm(
         len(crio_toml['crio']['image'].get('insecure_registries', [])) == 0,
         'insecure_registries are not recommended in production in {}'.format(
-            crio_conf.relpath
-        )
-    )
+            crio_conf.relpath))
 
     crio_umount_conf = Pathname(
-        '/usr/share/oci-umount/oci-umount.d/crio-umount.conf'
-    )
+        '/usr/share/oci-umount/oci-umount.d/crio-umount.conf')
     umounts = strip_config(crio_umount_conf)
 
     confirm(
         len(umounts),
-        'Missing path(s) to auto-unmount in containers to prevent busy-locks'
-    )
+        'Missing path(s) to auto-unmount in containers to prevent busy-locks')
 
     var = ['/var/run/containers/*', '/var/lib/containers/storage/*']
     confirm(
-        set(var).issubset(umounts),
-        '"{}" should be included in {}'.format(var, crio_umount_conf.relpath)
-    )
+        set(var).issubset(umounts), '"{}" should be included in {}'.format(
+            var, crio_umount_conf.relpath))

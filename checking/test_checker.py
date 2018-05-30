@@ -4,9 +4,8 @@ import subprocess
 import sys
 import unittest
 
-from mock import MagicMock, PropertyMock, patch
-
 from checker import Checker
+from mock import MagicMock, PropertyMock, patch
 
 # sys.path.insert(0, os.path.dirname(__file__))
 sys.path.append('.')

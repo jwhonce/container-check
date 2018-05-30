@@ -1,7 +1,8 @@
 import unittest
 
-import mock
 from rpm import Rpm
+
+import mock
 
 
 class TestRpm(unittest.TestCase):
@@ -21,9 +22,8 @@ class TestRpm(unittest.TestCase):
         with mock.patch.object(rpm, '_query') as query:
             query.return_value = (expected, None)
             self.assertEqual(expected, rpm.nvr)
-            query.assert_called_once_with([
-                'rpm', '--query', '--root', '/mock', 'mock-me'
-            ])
+            query.assert_called_once_with(
+                ['rpm', '--query', '--root', '/mock', 'mock-me'])
 
     def test_files(self):
         expected = ['Pocket', 'Wamba', 'Rigoletto']
@@ -31,15 +31,13 @@ class TestRpm(unittest.TestCase):
         with mock.patch.object(rpm, '_query') as query:
             query.return_value = ('\n'.join(expected), None)
             self.assertEqual(expected, rpm.files)
-            query.assert_called_once_with([
-                'rpm', '--query', '--list', '--root', '/mock', 'mock-me'
-            ])
+            query.assert_called_once_with(
+                ['rpm', '--query', '--list', '--root', '/mock', 'mock-me'])
 
     def test_verify(self):
         rpm = Rpm('mock-me', prefix='/mock')
         with mock.patch.object(rpm, '_query') as query:
             query.return_value = (None, None)
             self.assertTrue(rpm.verify())
-            query.assert_called_once_with([
-                'rpm', '--verify', '--root', '/mock', 'mock-me'
-            ])
+            query.assert_called_once_with(
+                ['rpm', '--verify', '--root', '/mock', 'mock-me'])

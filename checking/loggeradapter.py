@@ -2,9 +2,10 @@ import logging
 
 
 class LoggerAdapter(logging.LoggerAdapter):
-    """Ensure LoggerAdapter has a value for %(script) fomatting"""
+    """Ensure LoggerAdapter has a value for %(script) fomatting."""
 
     def process(self, msg, kwargs):
+        """Use msg and kwargs, to insert contextual information."""
         if 'extra' in kwargs:
             extra = self.extra.copy()
             extra.update(kwargs['extra'])

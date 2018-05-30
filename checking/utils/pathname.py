@@ -2,19 +2,17 @@ import os
 
 
 class Pathname(str):
-    """Manipulate path relative to container and host"""
+    """Manipulate path relative to container and host."""
 
-    def __new__(cls, path, prefix='/host'):
-        if isinstance(path, basestring):
-            relpath = path
-        else:
-            elements = [path[0]]
-            elements.extend(map(lambda e: e.strip(os.sep), path[1:]))
-            # now it's "safe" to join all the path elements
-            relpath = os.path.join(*elements)
+    MOUNT_PREFIX = '/host'
 
-        abspath = os.path.join(prefix,
-                               relpath.strip(os.sep)) if prefix else relpath
+    def __new__(cls, path, **kwargs):
+        """Allocate new Pathname object."""
+        default = os.environ.get('MOUNT_PREFIX', Pathname.MOUNT_PREFIX)
+        prefix = kwargs.get('prefix', default)
+
+        relpath = Pathname.join(path) if hasattr(path, '__iter__') else path
+        abspath = Pathname.join((prefix, relpath)) if prefix else relpath
 
         obj = super(Pathname, cls).__new__(cls, abspath)
         obj._relpath = relpath
@@ -23,12 +21,20 @@ class Pathname(str):
 
     @property
     def relpath(self):
+        """Pathname relative to container."""
         return self._relpath
 
     @property
     def abspath(self):
+        """Pathname relative to the host."""
         return self
 
     @property
     def prefix(self):
+        """Prefix of host mount points."""
         return self._prefix
+
+    @classmethod
+    def join(cls, arg):
+        """Join path elements and normalize path."""
+        return Pathname(os.path.normpath(os.sep.join(arg)))

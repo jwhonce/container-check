@@ -1,4 +1,4 @@
-"""Helper Classes for python checks"""
+"""Helper Classes for python checks."""
 
 import re
 import subprocess
@@ -6,6 +6,7 @@ import sys
 
 from .audit import Audit
 from .checked import Checked
+from .kmod import Kmod
 from .pathname import Pathname
 from .rpm import Rpm
 from .selinux import Selinux
@@ -14,6 +15,7 @@ from .systemd import Systemd
 __all__ = [
     'Audit',
     'Checked',
+    'Kmod'
     'Pathname',
     'Rpm',
     'Selinux',
@@ -22,7 +24,7 @@ __all__ = [
 
 
 def resolve_config(path):
-    """Return options from shell formatted configuration file"""
+    """Return options from shell formatted configuration file."""
     try:
         cmd = 'set -o allexport; . {} >&/dev/null; env'.format(path)
         out = subprocess.check_output(cmd, close_fds=True, shell=True, env={})
@@ -41,7 +43,7 @@ def resolve_config(path):
 
 
 def strip_config(path):
-    """Return lines stripped of comments from configuration file"""
+    """Return lines stripped of comments from configuration file."""
     lines, data = [], []
     try:
         with open(path, 'r') as f:
@@ -57,11 +59,11 @@ def strip_config(path):
 
 
 def log_error(msg):  # pragma: no cover
-    """Helper to log error text"""
+    """Log error text."""
     sys.stderr.write(str(msg) + '\n')
     sys.stderr.flush()
 
 
 def log_info(msg):  # pragma: no cover
-    """Helper to log informational text"""
+    """Log informational text."""
     sys.stdout.write(str(msg) + '\n')

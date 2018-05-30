@@ -1,7 +1,8 @@
 import unittest
 
-import mock
 from selinux import Selinux
+
+import mock
 
 
 class TestSelinux(unittest.TestCase):
@@ -16,17 +17,15 @@ class TestSelinux(unittest.TestCase):
             enabled = mock_open.return_value.__enter__.return_value
             enabled.side_effect = '1'
             self.assertTrue(Selinux('/mock').isenabled)
-            mock_open.assert_called_once_with(
-                '/mock/sys/fs/selinux/enforce', 'r'
-            )
+            mock_open.assert_called_once_with('/mock/sys/fs/selinux/enforce',
+                                              'r')
 
     def test_isenabled_false(self):
         with mock.patch('__builtin__.open') as mock_open:
             mock_open.side_effect = IOError()
             self.assertFalse(Selinux('/mock').isenabled)
-            mock_open.assert_called_once_with(
-                '/mock/sys/fs/selinux/enforce', 'r'
-            )
+            mock_open.assert_called_once_with('/mock/sys/fs/selinux/enforce',
+                                              'r')
 
     def test_verify_true(self):
         selinux = Selinux('/mock')

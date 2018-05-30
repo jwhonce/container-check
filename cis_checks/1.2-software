@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+"""1.2 Configure Software Updates, see page 57."""
+
+import ConfigParser
+import glob
+import os
+
+from checking.utils import Checked, Pathname
+
+with Checked() as (confirm, error):
+
+    def add_paths(path):
+        target = []
+        try:
+            for folder, _, files in os.walk(path):
+                for f in files:
+                    target.append(os.path.abspath(os.path.join(folder, f)))
+        except OSError:
+            return ()
+        return target
+
+    repo_files = [Pathname('/etc/yum.conf').abspath]
+    repo_files = [Pathname('/etc/dnf.conf').abspath]
+    repo_files.extend(add_paths(Pathname('/etc/yum/repos.d')))
+    repo_files.extend(add_paths(Pathname('/etc/yum.repos.d')))
+
+    parser = ConfigParser.ConfigParser()
+    for file in sorted(repo_files):
+        if not os.path.isfile(file):
+            continue
+
+        config = parser.read(file)
+        for section in parser.sections():
+            confirm(
+                parser.get(section, 'gpgcheck', None),
+                'RPM package signature has been disabled'
+                ' in {}:section {} via gpgcheck.'.format(file, section))
+
+    confirm(not glob.glob(Pathname('/etc/rc?.d/S*rhnsd')),
+            '"rhnsd" should not be running on secure production machines.')

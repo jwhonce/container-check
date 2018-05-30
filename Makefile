@@ -2,6 +2,7 @@
 
 VOLUMES=\
 -v /etc:/host/etc:ro \
+-v /proc:/host/proc:ro \
 -v /run:/host/run:ro \
 -v /sys:/host/sys:ro \
 -v /usr:/host/usr:ro \
@@ -12,7 +13,7 @@ build:
 
 run:
 	docker run ${VOLUMES} \
-	-it --privileged --rm --name container-check container-check
+	-it --privileged --rm --name container-check container-check ./container_check --checks=./cis_checks:./checks
 
 shell:
 	docker run ${VOLUMES} \

@@ -3,31 +3,26 @@
 import re
 from contextlib import closing
 
-from docker import DockerClient
-
 from checking.utils import Checked
+from docker import DockerClient
 
 re_update = re.compile('update', re.IGNORECASE)
 re_add = re.compile('add', re.IGNORECASE)
 
 with Checked() as (confirm, _):
-    with closing(DockerClient(base_url='unix://host/var/run/docker.sock',
-                              version='auto')) as client:
+    with closing(
+            DockerClient(
+                base_url='unix://host/var/run/docker.sock',
+                version='auto')) as client:
         for image in client.images.list():
             id = image.tags[0] if image.tags else image.short_id
 
-            confirm(
-                image.attrs['Config'].get('Healthcheck', ''),
-                'Image "{}" missing a healthcheck'.format(id)
-            )
+            confirm(image.attrs['Config'].get('Healthcheck', ''),
+                    'Image "{}" missing a healthcheck'.format(id))
 
             # Pass judgement on how image was built
             for event in image.history():
-                confirm(
-                    not re_update.search(event['CreatedBy']),
-                    'Image "{}" built using "UPDATE"'.format(id)
-                )
-                confirm(
-                    not re_add.search(event['CreatedBy']),
-                    'Image "{}" built using "ADD"'.format(id)
-                )
+                confirm(not re_update.search(event['CreatedBy']),
+                        'Image "{}" built using "UPDATE"'.format(id))
+                confirm(not re_add.search(event['CreatedBy']),
+                        'Image "{}" built using "ADD"'.format(id))

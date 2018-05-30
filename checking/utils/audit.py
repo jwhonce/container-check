@@ -1,38 +1,40 @@
 from __future__ import absolute_import
 
-import auparse
 import datetime
 import os
+
+import auparse
 
 from .pathname import Pathname
 
 
 class Audit(object):
+    """Manage SELinux audit logs."""
+
     def __init__(self, path, prefix='/host'):
-        self._logfile = Pathname(path, prefix)
+        """Construct manager."""
+        self._logfile = Pathname(path, prefix=prefix)
 
         epoch = datetime.datetime.utcfromtimestamp(0)
         now = datetime.datetime.now() - datetime.timedelta(days=30)
         self._30day_delta = (now - epoch).total_seconds()
 
         try:
-            self._parser = auparse.AuParser(
-                auparse.AUSOURCE_FILE, self._logfile
-            )
+            self._parser = auparse.AuParser(auparse.AUSOURCE_FILE,
+                                            self._logfile)
         except IOError as e:
             raise IOError(e.errno, os.strerror(e.errno), self._logfile.relpath)
         except OSError as e:
             raise OSError(e.errno, os.strerror(e.errno), self._logfile.relpath)
 
     def avc(self, by_time=True):
-        self._parser.search_add_item(
-            'type', '=', 'AVC', auparse.AUSEARCH_RULE_CLEAR
-        )
+        """Filter log by avc's."""
+        self._parser.search_add_item('type', '=', 'AVC',
+                                     auparse.AUSEARCH_RULE_CLEAR)
 
         if by_time:
-            self._parser.search_add_timestamp_item(
-                '>', self._30day_delta, 0, auparse.AUSEARCH_RULE_AND
-            )
+            self._parser.search_add_timestamp_item('>', self._30day_delta, 0,
+                                                   auparse.AUSEARCH_RULE_AND)
         self._parser.search_set_stop(auparse.AUSEARCH_STOP_EVENT)
 
         try:

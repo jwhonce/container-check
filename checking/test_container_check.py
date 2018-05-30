@@ -1,6 +1,6 @@
-import shutil
 import imp
 import os
+import shutil
 import tempfile
 import unittest
 
@@ -12,9 +12,8 @@ class TestContainerCheck(unittest.TestCase):
     def setUpClass(cls):
         path = 'container_check'
         with open(path, 'r') as src:
-            module = imp.load_module(
-                'ContainerCheck', src, path, ('', 'r', imp.PY_SOURCE)
-            )
+            module = imp.load_module('ContainerCheck', src, path,
+                                     ('', 'r', imp.PY_SOURCE))
         cls.main_cls = module.Main
 
     def setUp(self):
@@ -41,13 +40,11 @@ class TestContainerCheck(unittest.TestCase):
         # create no executable directory
         self.lost_dir, self.lost_file = mkfile(
             self.home, 'lost_dir', 0444,
-            '#!/usr/bin/env python\nprint "hello, world"'
-        )
+            '#!/usr/bin/env python\nprint "hello, world"')
 
         # create no executable directory
         self.checks_dir, self.check_file = mkfile(
-            self.home, 'checks', 0555, '#!/usr/bin/env python\nexit(0)'
-        )
+            self.home, 'checks', 0555, '#!/usr/bin/env python\nexit(0)')
 
     def tearDown(self):
         shutil.rmtree(self.home)
@@ -57,9 +54,8 @@ class TestContainerCheck(unittest.TestCase):
         mock_log = MagicMock()
         parser = self.main_cls.get_parser()
 
-        bad_path = os.pathsep.join([
-            self.no_dir, self.empty_dir, self.lost_dir
-        ])
+        bad_path = os.pathsep.join(
+            [self.no_dir, self.empty_dir, self.lost_dir])
         args = parser.parse_args(['--checks', bad_path])
         setattr(args, 'log', mock_log)
 

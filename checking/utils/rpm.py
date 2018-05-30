@@ -5,20 +5,22 @@ import sys
 
 
 class Rpm(object):
-    """ Helper for rpm commands"""
+    """Helper for rpm commands."""
+
     not_found = 'Package "{}" is not installed/found on host\n'
     not_valid = 'Files in package "{}" failed validation:\n{}\n'
 
     def __init__(self, name, prefix='/host'):
+        """Construct rpm manager."""
         self._name = name
         self._prefix = prefix
 
     def __enter__(self):
-        """context manager protocol"""
+        """Context manager protocol."""
         return self
 
     def __exit__(self, *args):
-        """context manager protocol"""
+        """Context manager protocol."""
         pass
 
     def _query(self, command):
@@ -28,15 +30,13 @@ class Rpm(object):
 
         try:
             return subprocess.check_output(
-                command, close_fds=True
-            ).strip(), None
+                command, close_fds=True).strip(), None
         except subprocess.CalledProcessError as e:
             if e.output.find('is not installed') >= 0:
                 sys.stderr.write(Rpm.not_found.format(self._name))
             else:
                 sys.stderr.write(
-                    Rpm.not_valid.format(self._name, e.output.strip())
-                )
+                    Rpm.not_valid.format(self._name, e.output.strip()))
             return None, e
 
     def _build_command(self, command):
@@ -54,14 +54,14 @@ class Rpm(object):
 
     @property
     def files(self):
-        """Obtain files for package"""
+        """Obtain files for package."""
         c = self._build_command(['rpm', '--query', '--list'])
         o, e = self._query(c)
         return o.splitlines() if e is None else []
 
     @property
     def nvr(self):
-        """Obtain (name, version, release) for package"""
+        """Obtain (name, version, release) for package."""
         c = self._build_command(['rpm', '--query'])
         o, e = self._query(c)
         return o if e is None else None

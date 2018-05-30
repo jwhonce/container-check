@@ -8,9 +8,10 @@ import loggeradapter
 
 
 class Checker(object):
-    """Driver for checking host support for container tools"""
+    """Driver for checking host support for container tools."""
 
     def __init__(self, debug):
+        """Construct Checker object."""
         self._debug = debug
         self._env = {}
 
@@ -24,17 +25,18 @@ class Checker(object):
 
     @property
     def env(self):
+        """Environment for running checks."""
         return copy.deepcopy(self._env)
 
     def _call_check(self, cmd, **kw):
-        """Execute command and capture results"""
-
+        """Execute command and capture results."""
         try:
-            pid = subprocess.Popen([cmd],
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE,
-                                   close_fds=True,
-                                   env=kw['env'])
+            pid = subprocess.Popen(
+                [cmd],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                close_fds=True,
+                env=kw['env'])
             out, err = pid.communicate()
 
             return (
@@ -48,16 +50,14 @@ class Checker(object):
             return [], [e.message], os.errno.EINVAL
 
     def _is_exec(self, p):
-        """Does the given path point to an executable?"""
+        """Return True path points to an executable."""
         return os.path.isfile(p) and os.access(p, os.X_OK)
 
     def check(self, path):
-        """Execute checks found at path and report results"""
-
+        """Execute checks found at path(s) and report results."""
         error = False
-        log = loggeradapter.LoggerAdapter(
-            logging.getLogger(), {'script': os.path.basename(path)}
-        )
+        log = loggeradapter.LoggerAdapter(logging.getLogger(),
+                                          {'script': os.path.basename(path)})
 
         if not self._is_exec(path):
             log.warning('"{}" is not executable'.format(path))

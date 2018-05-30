@@ -1,6 +1,7 @@
 import errno
 import os
 import unittest
+
 from audit import Audit
 
 from mock import patch
@@ -11,9 +12,9 @@ class TestAudit(unittest.TestCase):
 
     @patch('auparse.AuParser')
     def test_constr_IOError(self, mock_parser):
-        mock_parser.side_effect = IOError(
-            errno.ENOENT, os.strerror(errno.ENOENT), '/mock/jester'
-        )
+        mock_parser.side_effect = IOError(errno.ENOENT,
+                                          os.strerror(errno.ENOENT),
+                                          '/mock/jester')
 
         with self.assertRaises(IOError) as cm:
             Audit('/jester', '/mock')

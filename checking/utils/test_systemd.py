@@ -1,7 +1,8 @@
 import unittest
 
-from mock import ANY, MagicMock, call, patch
 from systemd import Systemd
+
+from mock import ANY, MagicMock, call, patch
 
 
 class TestSystemd(unittest.TestCase):
@@ -16,14 +17,12 @@ class TestSystemd(unittest.TestCase):
         patcher = patch(
             'dbus.bus.BusConnection.get_object',
             autospec=True,
-            side_effect=['systemd', 'proxy']
-        )
+            side_effect=['systemd', 'proxy'])
         self.MockBusConnection = patcher.start()
         self.addCleanup(patcher.stop)
 
         patcher = patch(
-            'dbus.Interface', autospec=True, return_value=Interface()
-        )
+            'dbus.Interface', autospec=True, return_value=Interface())
         self.MockInterface = patcher.start()
         self.addCleanup(patcher.stop)
         pass

@@ -24,12 +24,11 @@ with Checked() as (confirm, error):
     try:
         for avc in Audit('/var/log/audit/audit.log').avc():
             # Make avc look like ausearch output
-            log_error((
-                'time->{timestamp} type={type} {seresult} {{{seperms}}}'
-                ' for pid={pid} comm={comm}'
-                ' scontext={scontext} tcontext={tcontext}'
-                ' tclass={tclass} permissive={permissive}'
-            ).format(**avc))
+            log_error(
+                ('time->{timestamp} type={type} {seresult} {{{seperms}}}'
+                 ' for pid={pid} comm={comm}'
+                 ' scontext={scontext} tcontext={tcontext}'
+                 ' tclass={tclass} permissive={permissive}').format(**avc))
             error(True)
     except (IOError, OSError) as e:
         log_error(e)

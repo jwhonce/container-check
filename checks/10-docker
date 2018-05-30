@@ -2,10 +2,9 @@
 
 from contextlib import closing
 
-from docker import DockerClient
-
 from checking.utils import (Checked, Pathname, Rpm, Selinux, Systemd,
                             log_error, log_info, resolve_config)
+from docker import DockerClient
 
 PACKAGES = [
     'docker-client',
@@ -28,49 +27,39 @@ with Checked() as (confirm, error):
     if not Selinux().verify(*FILES):
         error(True)
 
-    with closing(DockerClient(base_url='unix://host/var/run/docker.sock',
-                              version='auto')) as client:
+    with closing(
+            DockerClient(
+                base_url='unix://host/var/run/docker.sock',
+                version='auto')) as client:
         info = client.info()
 
     log_info('package version {}'.format(info['PkgVersion']))
 
-    msg = (
-        'One of "{}" is the recommended driver'
-        ' in production rather than "{}"'
-    )
+    msg = ('One of "{}" is the recommended driver'
+           ' in production rather than "{}"')
     expected = ['overlay', 'overlay2']
     confirm(info['Driver'] in expected, msg.format(expected, info['Driver']))
 
-    confirm(
-        'rhel-push-plugin' in info['Plugins']['Authorization'],
-        'rhel-push-plugin Authorization plugin is not configured'
-    )
+    confirm('rhel-push-plugin' in info['Plugins']['Authorization'],
+            'rhel-push-plugin Authorization plugin is not configured')
 
-    confirm(
-        info['BridgeNfIptables'],
-        'container engine must be configured to use iptables'
-    )
+    confirm(info['BridgeNfIptables'],
+            'container engine must be configured to use iptables')
 
     confirm(
         info['LoggingDriver'] == 'json-file',
         '"json-file" is recommended for --log-driver in production not "{}"'.
-        format(info['LoggingDriver'])
-    )
+        format(info['LoggingDriver']))
 
     confirm([s for s in info['SecurityOptions'] if 'selinux' in s],
             'daemon running without "--selinux-enabled"')
 
-    confirm(
-        not info['ExperimentalBuild'],
-        'Experimental builds should not be used in production'
-    )
+    confirm(not info['ExperimentalBuild'],
+            'Experimental builds should not be used in production')
 
-    confirm(
-        info['CgroupDriver'] == 'systemd', (
-            '"--exec-opt native.cgroupdriver=systemd" should '
-            'be used in production not "{}"'
-        ).format(info['CgroupDriver'])
-    )
+    confirm(info['CgroupDriver'] == 'systemd',
+            ('"--exec-opt native.cgroupdriver=systemd" should '
+             'be used in production not "{}"').format(info['CgroupDriver']))
 
     file = Pathname('/etc/sysconfig/docker')
     config = resolve_config(file)
@@ -78,45 +67,33 @@ with Checked() as (confirm, error):
 
     missing = set(required).difference(config.keys())
     if missing:
-        log_error(
-            'Missing "{}" option(s) in {}'.format(
-                ', '.join(missing), file.relpath
-            )
-        )
+        log_error('Missing "{}" option(s) in {}'.format(
+            ', '.join(missing), file.relpath))
 
     var = 'OPTIONS'
-    confirm(
-        '--selinux-enabled' in config.get(var, ''),
-        'Missing --selinux-enabled for {} in {}'.format(var, file.relpath)
-    )
+    confirm('--selinux-enabled' in config.get(var, ''),
+            'Missing --selinux-enabled for {} in {}'.format(var, file.relpath))
 
-    confirm(
-        '--insecure-registry' not in config.get(var, ''), (
-            '"--insecure-registry" for {} in {}'
-            ' should not be used in production'
-        ).format(var, file.relpath)
-    )
+    confirm('--insecure-registry' not in config.get(var, ''),
+            ('"--insecure-registry" for {} in {}'
+             ' should not be used in production').format(var, file.relpath))
 
     var = 'ADD_REGISTRY'
     val = '--add-registry registry.access.redhat.com'
     confirm(
-        val in config.get(var, ''),
-        'Missing "{}" for {} in "{}"'.format(val, var, file.relpath)
-    )
+        val in config.get(var, ''), 'Missing "{}" for {} in "{}"'.format(
+            val, var, file.relpath))
 
     file = Pathname('/etc/sysconfig/docker-storage')
     config = resolve_config(file)
     var = 'DOCKER_STORAGE_OPTIONS'
-    confirm(
-        var in config.keys(),
-        'Missing "{}" option(s) in {}'.format(var, file.relpath)
-    )
+    confirm(var in config.keys(), 'Missing "{}" option(s) in {}'.format(
+        var, file.relpath))
 
     val = '--storage-driver overlay2'
     confirm(
-        val in config.get(var, ''),
-        'Missing "{}" for {} in {}'.format(val, var, file.relpath)
-    )
+        val in config.get(var, ''), 'Missing "{}" for {} in {}'.format(
+            val, var, file.relpath))
 
     service = Systemd('docker.service')
     confirm(service.isactive, 'docker.service is not active')

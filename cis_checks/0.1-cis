@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Report CIS version etc
+source checking/utils.sh
+
+echo CIS Red Hat Enterprise Linux 7 Benchmark v2.2.0-12-27-2017

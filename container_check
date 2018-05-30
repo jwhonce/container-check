@@ -92,27 +92,27 @@ class Main(object):
 
     @classmethod
     def apply(cls, args):
-        found_file = False
-        error = False
+        checks = []
+
         for directory in args.checks.split(os.pathsep):
+            # Search the list of paths provided for 'checks' to run
             if not os.path.isdir(directory):
                 args.log.error(
                     '"{}" is not an existing directory'.format(directory)
                 )
-                error = True
                 continue
 
-            check = Checker(args.debug)
             for path, _, files in os.walk(directory):
                 for file in files:
-                    found_file = True
-                    if not check.check(os.path.join(path, file)):
-                        error = True
+                    checks.append(os.path.join(path, file))
 
-        if not found_file:
+        checker = Checker(args.debug)
+        results = list(map(checker.check, sorted(checks)))
+
+        if not checks:
             args.log.error('"{}" contain no checks'.format(args.checks))
             return 1
-        elif error:
+        elif any(results):
             return 2
         else:
             return 0
