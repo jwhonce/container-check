@@ -20,7 +20,7 @@ with Checked() as (confirm, error):
         return target
 
     repo_files = [Pathname('/etc/yum.conf').abspath]
-    repo_files = [Pathname('/etc/dnf.conf').abspath]
+    repo_files.extend(Pathname('/etc/dnf.conf').abspath)
     repo_files.extend(add_paths(Pathname('/etc/yum/repos.d')))
     repo_files.extend(add_paths(Pathname('/etc/yum.repos.d')))
 

@@ -37,4 +37,4 @@ class Pathname(str):
     @classmethod
     def join(cls, arg):
         """Join path elements and normalize path."""
-        return Pathname(os.path.normpath(os.sep.join(arg)))
+        return os.path.normpath(os.sep.join(arg))

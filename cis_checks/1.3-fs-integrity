@@ -1,0 +1,37 @@
+#!/usr/bin/env python
+"""1.3 Filesystem Integrity Checking, see page 63."""
+
+import glob
+import re
+
+from checking.utils import Checked, Pathname, Rpm, Selinux, log_error
+
+with Checked() as (confirm, error):
+    with Rpm('aide') as rpm:
+        if rpm.verify():
+            if not Selinux().verify(rpm.files):
+                error(True)
+        else:
+            error(True)
+
+    re_aide = re.compile('aide')
+    aide_found = False
+
+    crontabs = [Pathname('/etc/crontab'), Pathname('/var/spool/cron/root')]
+    crontabs.extend(glob.glob(Pathname('/etc/cron.*/*')))
+    print crontabs
+    for tab in crontabs:
+        try:
+            with open(tab, 'r') as fd:
+                for line in fd.readlines():
+                    if re_aide.search(line):
+                        aide_found = True
+                        break
+        except IOError:
+            pass
+        if aide_found:
+            break
+    else:
+        log_error('"aide" requires a cron job for periodic'
+                  ' filesystem integrity checking.')
+        error(True)
