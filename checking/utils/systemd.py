@@ -1,6 +1,10 @@
-import threading
-
+"""Model for Systemd support."""
 import dbus
+
+try:
+    from functools import lru_cache
+except ImportError:
+    from backports.functools_lru_cache import lru_cache
 
 
 class Systemd(object):
@@ -8,9 +12,7 @@ class Systemd(object):
 
     def __init__(self, service, prefix='/host'):
         """Construct manager."""
-        self._lock = threading.Lock()
         self._service = service
-        self._properties = None
 
         # No duplicate separators allowed in dbus path
         path = '/'.join(
@@ -27,36 +29,46 @@ class Systemd(object):
             proxy, dbus_interface='org.freedesktop.DBus.Properties')
 
     @property
+    @lru_cache(maxsize=1)
+    def unit(self):
+        """Get unit properties."""
+        return self._interface.GetAll('org.freedesktop.systemd1.Unit')
+
+    @property
+    @lru_cache(maxsize=1)
+    def service(self):
+        """Get service propties."""
+        return self._interface.GetAll('org.freedesktop.systemd1.Service')
+
+    @property
     def isenabled(self):
         """Service been enabled."""
-        return self.get('UnitFileState') == 'enabled'
+        return self.unit.get('UnitFileState') == 'enabled'
 
     @property
     def isactive(self):
         """Service been started."""
-        return self.get('ActiveState') == 'active'
+        return self.unit.get('ActiveState') == 'active'
 
-    def get(self, key, default=None):
-        """Retrieve value for Services' key from Systemd."""
-        return self.__getitem__(key, default)
+    @classmethod
+    def map_exec(cls, obj):
+        """Map Exec* records to dictionary.
 
-    def __getitem__(self, key, default=None):
-        self._load_properties()
-        try:
-            return self._properties[key]
-        except KeyError:
-            if default:
-                return default
-            raise
+        TODO: Make this happen automatically.
+        """
+        if not obj:
+            return {}
 
-    def __len__(self):
-        self._load_properties()
-        return len(self._properties)
-
-    def _load_properties(self):
-        with self._lock:
-            if self._properties:
-                return
-
-            self._properties = self._interface.GetAll(
-                'org.freedesktop.systemd1.Unit')
+        zipped = zip((
+            'binary',
+            'args',
+            'is_unclean_exit_failure',
+            'began_realtime',
+            'finished_realtime',
+            'began_monotonic',
+            'finished_monotonic',
+            'pid',
+            'returncode',
+            'status',
+        ), obj[0])
+        return dict(zipped)

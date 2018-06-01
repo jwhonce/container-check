@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+"""1.5 Additional Process Hardening, see page 73."""
+
+import os
+import re
+import subprocess
+
+from checking.utils import Checked, Pathname, Systemd, log_error
+
+
+def search(file, top, pattern, message, error):
+    items = [file]
+    for d, _, files in os.walk(top):
+        for f in files:
+            items.append(os.path.join(d, f))
+
+    for i in items:
+        with open(i) as conf:
+            contents = conf.read()
+            if pattern.search(contents):
+                break
+    else:
+        log_error(message)
+        error(True)
+
+
+with Checked() as (confirm, error):
+    search(
+        Pathname('/etc/security/limits.conf'),
+        Pathname('/etc/security/limits.d'),
+        re.compile('^\*\shard\score\s0$'),
+        'Hard limit on core dumps should be "0" on production systems.',
+        error,
+    )
+
+    search(
+        Pathname('/etc/sysctl.conf'),
+        Pathname('/etc/sysctl.d'),
+        re.compile('fs\.suid_dumpable\s=\s0'),
+        'SUID executables should be prevented'
+        ' from dumping core on production systems.',
+        error,
+    )
+
+    output = subprocess.check_output(
+        ['journalctl', '--root={}'.format(Pathname('/var/log/journal'))],
+        stderr=subprocess.STDOUT)
+
+    re_nx = re.compile('NX.*protection:\sactive')
+    for line in output.split('\n'):
+        if re_nx.search(line):
+            break
+    else:
+        log_error('NX (Execute Disable) protection is not enabled.')
+        error(True)

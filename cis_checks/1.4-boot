@@ -1,0 +1,45 @@
+#!/usr/bin/env python
+"""1.4 Secure Boot Settings, see page 66."""
+
+import os
+import re
+
+from checking.utils import Checked, Pathname, Systemd, log_error
+
+grub_cfg = Pathname('/boot/grub2/grub.cfg')
+user_cfg = Pathname('/boot/grub2/user.cfg')
+
+zero_uid = '"{}" should have uid 0.'
+zero_gid = '"{}" should have gid 0.'
+
+with Checked() as (confirm, error):
+    stat = os.stat(grub_cfg)
+    confirm(stat.st_uid == 0, zero_uid.format(grub_cfg.relpath))
+    confirm(stat.st_gid == 0, zero_gid.format(grub_cfg.relpath))
+
+    if os.path.isfile(user_cfg):
+        stat = os.stat(user_cfg)
+        confirm(stat.st_uid == 0, zero_uid.format(user_cfg.relpath))
+        confirm(stat.st_gid == 0, zero_gid.format(user_cfg.relpath))
+
+    with open(grub_cfg, 'r') as cfg:
+        for line in cfg.readlines():
+            if re.search('^GRUB2_PASSWORD', line):
+                break
+        else:
+            log_error('"GRUB2_PASSWORD" is not set.')
+            error(True)
+
+    re_sulogin = re.compile('sulogin')
+
+    rescue = Systemd.map_exec(
+        Systemd('rescue.service').service.get('ExecStart'))
+    confirm(
+        re_sulogin.search(rescue['binary']),
+        '"rescue.service" should use a version of sulogin.')
+
+    emergency = Systemd.map_exec(
+        Systemd('emergency.service').service.get('ExecStart'))
+    confirm(
+        re_sulogin.search(emergency['binary']),
+        '"emergency.service" should use a version of sulogin.')

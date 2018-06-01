@@ -17,9 +17,11 @@ with Checked() as (confirm, error):
     re_aide = re.compile('aide')
     aide_found = False
 
-    crontabs = [Pathname('/etc/crontab'), Pathname('/var/spool/cron/root')]
+    crontabs = [
+        Pathname('/etc/crontab'),
+        Pathname('/var/spool/cron/root'),
+    ]
     crontabs.extend(glob.glob(Pathname('/etc/cron.*/*')))
-    print crontabs
     for tab in crontabs:
         try:
             with open(tab, 'r') as fd:

@@ -1,6 +1,7 @@
 .PHONY: run debug build size version
 
 VOLUMES=\
+-v /boot:/host/boot:ro \
 -v /etc:/host/etc:ro \
 -v /proc:/host/proc:ro \
 -v /run:/host/run:ro \

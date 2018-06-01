@@ -1,4 +1,5 @@
 import sys
+import traceback
 
 
 class Checked(object):
@@ -30,12 +31,11 @@ class Checked(object):
         """Enter context manager and provide handlers."""
         return (self.confirm, lambda v: setattr(self, 'error', v))
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, ex_type, ex_value, ex_traceback):
         """Log any exceptions."""
-        if type:
-            sys.stderr.write(
-                '{}({})\n{}\n'.format(type, str(value), traceback)
-            )
+        if ex_type:
+            sys.stderr.write(''.join(
+                traceback.format_exception(ex_type, ex_value, ex_traceback)))
 
         # Clean up before exiting
         sys.stderr.flush()
