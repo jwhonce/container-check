@@ -1,19 +1,29 @@
-import copy
-import os
+from __future__ import absolute_import
+
 import subprocess
 import sys
+from backports.functools_lru_cache import lru_cache
+import rpm as _rpm
+
+from .pathname import Pathname
 
 
 class Rpm(object):
-    """Helper for rpm commands."""
-
-    not_found = 'Package "{}" is not installed/found on host\n'
-    not_valid = 'Files in package "{}" failed validation:\n{}\n'
+    """Model for RPM database."""
 
     def __init__(self, name, prefix='/host'):
         """Construct rpm manager."""
-        self._name = name
+        self.name = name
         self._prefix = prefix
+
+        _rpm.addMacro('_dbpath', Pathname('/var/lib/rpm/'))
+        t = _rpm.TransactionSet()
+        m = t.dbMatch('name', name)
+        for hdr in m:
+            self.package = hdr
+            break
+        else:
+            self.package = None
 
     def __enter__(self):
         """Context manager protocol."""
@@ -23,45 +33,45 @@ class Rpm(object):
         """Context manager protocol."""
         pass
 
-    def _query(self, command):
-        if os.environ.get('DEBUG', False):
-            sys.stdout.write('DEBUG: rpm query: {}\n'.format(command))
-            sys.stdout.flush()
-
-        try:
-            return subprocess.check_output(
-                command, close_fds=True).strip(), None
-        except subprocess.CalledProcessError as e:
-            if e.output.find('is not installed') >= 0:
-                sys.stderr.write(Rpm.not_found.format(self._name))
-            else:
-                sys.stderr.write(
-                    Rpm.not_valid.format(self._name, e.output.strip()))
-            return None, e
-
-    def _build_command(self, command):
-        c = copy.deepcopy(command)
-        if self._prefix:
-            c.extend(['--root', self._prefix])
-        c.append(self._name)
-        return c
-
-    def verify(self):
-        """Verify files against rpm database, See rpm manpage."""
-        c = self._build_command(['rpm', '--verify'])
-        _, e = self._query(c)
-        return True if e is None else False
-
     @property
-    def files(self):
-        """Obtain files for package."""
-        c = self._build_command(['rpm', '--query', '--list'])
-        o, e = self._query(c)
-        return o.splitlines() if e is None else []
+    def isinstalled(self):
+        """Return True if package is installed."""
+        return False if self.package is None else True
 
     @property
     def nvr(self):
-        """Obtain (name, version, release) for package."""
-        c = self._build_command(['rpm', '--query'])
-        o, e = self._query(c)
-        return o if e is None else None
+        """Return Name-Version-Release for package."""
+        if self.package:
+            return self.package.sprintf("%{NAME}-%{VERSION}-%{RELEASE}")
+        return None
+
+    @property
+    @lru_cache(maxsize=1)
+    def files(self):
+        """Return list of files in package."""
+        if self.package:
+            return [f[0] for f in self.package.fiFromHeader()]
+        return []
+
+    def verify(self):
+        """Return True if no errors are found.
+
+        Use rpm command to take care of verify.
+        """
+        cmd = ['rpm', '--verify']
+        if self._prefix:
+            cmd.extend(['--root', self._prefix])
+        cmd.append(self.name)
+
+        try:
+            subprocess.check_output(cmd, close_fds=True)
+            return True
+        except subprocess.CalledProcessError as e:
+            if e.output.find('is not installed') >= 0:
+                sys.stderr.write(
+                    'Package "{}" is not installed/found on host.\n'.format(
+                        self.name))
+            else:
+                sys.stderr.write(
+                    'Files in package "{}" failed validation:\n{}\n'.format(
+                        self.name, e.output.strip()))

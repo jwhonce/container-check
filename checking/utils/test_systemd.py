@@ -38,6 +38,5 @@ class TestSystemd(unittest.TestCase):
 
         self.assertTrue(systemd.isenabled)
         self.assertTrue(systemd.isactive)
-        self.assertEqual(len(systemd), 2)
-        with self.assertRaises(KeyError):
-            systemd.get('Mocked')
+        self.assertEqual(len(systemd.unit), 2)
+        self.assertIsNone(systemd.unit.get('Mocked'))

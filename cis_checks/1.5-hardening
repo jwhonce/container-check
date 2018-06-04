@@ -3,53 +3,82 @@
 
 import os
 import re
-import subprocess
 
-from checking.utils import Checked, Pathname, Systemd, log_error
+from systemd import journal
+
+from checking.utils import Checked, Pathname, Rpm, log_error, log_info
 
 
-def search(file, top, pattern, message, error):
-    items = [file]
-    for d, _, files in os.walk(top):
-        for f in files:
-            items.append(os.path.join(d, f))
+# TODO: Split list building and searching, better reuse
+def list_files(*args):
+    entries = []
+    for entry in args:
+        if os.path.isfile(entry):
+            entries.append(entry)
+        else:
+            for d, _, files in os.walk(entry):
+                for f in files:
+                    entries.append(os.path.join(d, f))
+    return entries
 
-    for i in items:
-        with open(i) as conf:
-            contents = conf.read()
-            if pattern.search(contents):
-                break
+
+def search_files(pattern, files):
+    regex = re.compile(pattern)
+    for file in files:
+        with open(file) as fd:
+            contents = fd.read()
+            if regex.search(contents):
+                return True
     else:
-        log_error(message)
-        error(True)
+        return False
 
 
 with Checked() as (confirm, error):
-    search(
+    limits = list_files(
         Pathname('/etc/security/limits.conf'),
         Pathname('/etc/security/limits.d'),
-        re.compile('^\*\shard\score\s0$'),
-        'Hard limit on core dumps should be "0" on production systems.',
-        error,
     )
 
-    search(
+    sysctls = list_files(
         Pathname('/etc/sysctl.conf'),
         Pathname('/etc/sysctl.d'),
-        re.compile('fs\.suid_dumpable\s=\s0'),
-        'SUID executables should be prevented'
-        ' from dumping core on production systems.',
-        error,
+        Pathname('/run/sysctl.d'),
+        Pathname('/usr/lib/sysctl.d'),
     )
 
-    output = subprocess.check_output(
-        ['journalctl', '--root={}'.format(Pathname('/var/log/journal'))],
-        stderr=subprocess.STDOUT)
+    confirm(
+        search_files('^\*\shard\score\s0$', limits),
+        'Hard limit on core dumps should be "0" on secure systems.')
+
+    with open(Pathname('/proc/sys/fs/suid_dumpable')) as fd:
+        suid_dumpable = int(fd.read())
+        confirm(suid_dumpable == 0, 'fs.suid_dumpable is currently enabled.')
+
+    confirm(
+        search_files('fs\.suid_dumpable\s=\s0', sysctls),
+        'SUID executables should be prevented'
+        ' from dumping core on secure systems.')
+
+    with open(Pathname('/proc/sys/kernel/randomize_va_space')) as fd:
+        randomize_va_space = int(fd.read())
+        confirm(randomize_va_space == 2, 'ASLR is currently disabled.')
+
+    confirm(
+        search_files('kernel\.randomize_va_space\s=\s2', sysctls),
+        'ASLR should be enabled on secure systems.')
 
     re_nx = re.compile('NX.*protection:\sactive')
-    for line in output.split('\n'):
-        if re_nx.search(line):
-            break
-    else:
-        log_error('NX (Execute Disable) protection is not enabled.')
-        error(True)
+    with journal.Reader(path=Pathname('/var/log/journal')) as jrnl:
+        jrnl.this_boot()
+        jrnl.add_match(SYSLOG_IDENTIFIER=u'kernel')
+        for entry in jrnl:
+            if re_nx.search(entry['MESSAGE']):
+                log_info(entry['MESSAGE'])
+                break
+        else:
+            log_error('NX (Execute Disable) protection is not enabled.')
+            error(True)
+
+    with Rpm('prelink') as rpm:
+        confirm(not rpm.isinstalled,
+                '"prelink" should not be enabled on secure systems.')

@@ -2,7 +2,7 @@
 
 import toml
 from checking.utils import (Checked, Pathname, Rpm, Selinux, Systemd,
-                            strip_config)
+                            log_error, strip_config)
 
 FILES = []
 
@@ -20,28 +20,35 @@ with Checked() as (confirm, error):
     confirm(service.isactive, 'crio.service is not active')
     confirm(service.isenabled, 'crio.service is not enabled')
 
-    crio_conf = Pathname('/etc/crio/crio.conf')
-    crio_toml = toml.load(crio_conf)
+    try:
+        crio_conf = Pathname('/etc/crio/crio.conf')
+        crio_toml = toml.load(crio_conf)
 
-    confirm(crio_toml['crio']['runtime']['log_size_max'] > 0,
+        confirm(
+            crio_toml['crio']['runtime']['log_size_max'] > 0,
             'Unbounded container log sizes are not recommended in production')
 
-    val = ["registry.access.redhat.com", "docker.io"]
-    confirm(
-        set(val).issubset(crio_toml['crio']['image'].get('registries', [])),
-        'registries should contain "{}" for production in {}'.format(
-            val, crio_conf.relpath))
+        actual = crio_toml['crio']['image'].get('registries', [])
+        expected = ["registry.access.redhat.com", "docker.io"]
+        confirm(
+            set(expected).issubset(actual),
+            'registries should contain "{}" for production in {}'.format(
+                expected, crio_conf.relpath))
 
-    var = 'plugin_dir'
-    val = ['/usr/libexec/cni', '/opt/cni/bin']
-    confirm(crio_toml['crio']['network'][var] in val,
-            'Expected either "{}" for {} in {}'.format(val, var,
-                                                       crio_conf.relpath))
+        var = 'plugin_dir'
+        actual = crio_toml['crio']['network'][var]
+        expected = ['/usr/libexec/cni', '/opt/cni/bin']
+        confirm(actual in expected, 'Expected either "{}" for {} in {}'.format(
+            expected, var, crio_conf.relpath))
 
-    confirm(
-        len(crio_toml['crio']['image'].get('insecure_registries', [])) == 0,
-        'insecure_registries are not recommended in production in {}'.format(
-            crio_conf.relpath))
+        actual = crio_toml['crio']['image'].get('insecure_registries', [])
+        confirm(
+            len(actual) == 0,
+            'insecure_registries are not recommended in production in {}'.
+            format(crio_conf.relpath))
+    except IOError as e:
+        log_error(e)
+        error(True)
 
     crio_umount_conf = Pathname(
         '/usr/share/oci-umount/oci-umount.d/crio-umount.conf')

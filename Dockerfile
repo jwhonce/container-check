@@ -11,7 +11,9 @@ ENV PKG_LIST \
     dbus-python \
     libselinux-python \
     python2-mock \
-    python2-pip
+    python2-pip \
+    systemd-python \
+    mt-st
 
 RUN \
     yum install --setopt=tsflags=nodocs -y epel-release && \

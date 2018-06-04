@@ -46,73 +46,64 @@ class Main(object):
             description='Command to verify container configuration on host',
             formatter_class=HelpFormatter,
             add_help=True,
-            epilog=help_epilog
-        )
+            epilog=help_epilog)
         parser.add_argument(
             '-d',
             '--debug',
             action='store_true',
-            help='Turn on logging of debugging events'
-        )
+            help='Turn on logging of debugging events')
         parser.add_argument(
-            '--version', action='version', version='%(prog)s v' + __version__
-        )
+            '--version', action='version', version='%(prog)s v' + __version__)
         parser.add_argument(
             '-c',
             '--checks',
             default='./checks',
-            help='Path(s) to checks to execute. Formatted like system PATH.'
-        )
+            help='Path(s) to checks to execute. Formatted like system PATH.')
         format = '%(asctime)s | %(levelname)-7s | %(script)-20s | %(message)s'
         parser.add_argument(
             '-f',
             '--format',
             default=format,
-            help=(
-                'Override default logging format.'
-                ' Custom supported attributes(s): script.'
-                ' See "https://docs.python.org/library/logging.html"'
-            )
-        )
+            help=('Override default logging format.'
+                  ' Custom supported attributes(s): script.'
+                  ' See "https://docs.python.org/library/logging.html"'))
         return parser
 
     @classmethod
     def get_logger(cls, args):
         level = logging.DEBUG if args.debug else logging.INFO
         logging.basicConfig(
-            level=level, format=args.format, datefmt='%Y-%m-%d %H:%M:%S'
-        )
+            level=level, format=args.format, datefmt='%Y-%m-%d %H:%M:%S')
         log = LoggerAdapter(logging.getLogger(), {'script': ''})
-        log.debug(
-            'Logging initialized at level {}'.format(
-                logging.getLevelName(logging.getLogger().getEffectiveLevel())
-            )
-        )
+        log.debug('Logging initialized at level {}'.format(
+            logging.getLevelName(logging.getLogger().getEffectiveLevel())))
         return log
 
     @classmethod
     def apply(cls, args):
         checks = []
+        missing_directory = False
 
         for directory in args.checks.split(os.pathsep):
             # Search the list of paths provided for 'checks' to run
             if not os.path.isdir(directory):
                 args.log.error(
-                    '"{}" is not an existing directory'.format(directory)
-                )
+                    '"{}" is not an existing directory'.format(directory))
+                missing_directory = True
                 continue
 
+            chks = []
             for path, _, files in os.walk(directory):
                 for file in files:
-                    checks.append(os.path.join(path, file))
-
-        checker = Checker(args.debug)
-        results = list(map(checker.check, sorted(checks)))
+                    chks.append(os.path.join(path, file))
+            checks.extend(sorted(chks))
 
         if not checks:
             args.log.error('"{}" contain no checks'.format(args.checks))
             return 1
-        elif any(results):
+
+        checker = Checker(args.debug)
+        if not any(map(checker.check, checks)) or missing_directory:
             return 2
         else:
             return 0
