@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+"""1.6 Mandatory Access Control."""
+
+from checking.utils import Checked, Pathname, Rpm, Selinux, grep, log_error
+
+grub_cfg = Pathname('/boot/grub2/grub.cfg')
+default_cfg = Pathname('/etc/default/grub')
+selinux_cfg = Pathname('/etc/selinux/config')
+
+with Checked() as (confirm, error):
+    if list(grep(r'linux.*selinux=0', grub_cfg)):
+        log_error(('SELinux has been disabled by booting with'
+                   ' "selinux=0" in "{}".').format(grub_cfg.relpath))
+        error(True)
+
+    if list(grep(r'linux.*enforcing=0', default_cfg)):
+        log_error(('SELinux has been disabled by booting with'
+                   ' "enforcing=0" in "{}".').format(default_cfg.relpath))
+        error(True)
+
+    for line in grep('SELINUX=', selinux_cfg):
+        if 'SELINUX=enforcing' != line:
+            log_error(('SELinux has been disabled by configuration with'
+                       ' "{}" in "{}".').format(line, selinux_cfg.relpath))
+            error(True)
+
+    for line in grep('SELINUXTYPE=', selinux_cfg):
+        if 'SELINUXTYPE=targeted' != line:
+            log_error(('SELinux is not configuration with the correct policy'
+                       ' "{}" in "{}".').format(line, selinux_cfg.relpath))
+            error(True)
+
+    confirm(Selinux().isenabled, 'selinux enforcing is currently OFF')
+
+    confirm(not Rpm('setroubleshoot').isinstalled,
+            'Production servers should not have "setroubleshoot" installed.')
+
+    confirm(not Rpm('mcstrans').isinstalled,
+            'Production servers should not have "mcstans" installed.')
+
+    confirm(Rpm('libselinux').isinstalled, '"libselinux" is not installed.')

@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+"""1.7 Warning Banners"""
+
+import ConfigParser
+import os
+import re
+import stat
+
+from checking.utils import (Checked, Pathname, Rpm, Selinux, find_files, grep,
+                            log_error)
+
+re_mingetty = re.compile('(\\v|\\r|\\m|\\s)')
+sensitive_msg = (r'Sensitive information included in "{}"'
+                 r' by including "\v, \r, \m or \s".')
+
+zero_uid = '"{}" should have uid 0.'
+zero_gid = '"{}" should have gid 0.'
+
+with Checked() as (confirm, error):
+    for p in ['/etc/motd', '/etc/issue', '/etc/issue.net']:
+        path = Pathname(p)
+        if list(grep(re_mingetty, path)):
+            log_error(sensitive_msg.format(path.relpath))
+            error(True)
+
+        s = os.stat(path)
+        confirm(s.st_uid == 0, zero_uid.format(path.relpath))
+        confirm(s.st_gid == 0, zero_gid.format(path.relpath))
+        mode = stat.S_IMODE(s.st_mode)
+        confirm(mode & 0644, '"{}" mode should be "0644" not "{}"'.format(
+            path.relpath, oct(mode)))
+
+    if Rpm('gdm').isinstalled:
+        gdm_dconf = Pathname('/etc/dconf/profile/gdm')
+
+        if os.path.isfile(gdm_dconf):
+            if not list(grep(r'^user-db:user', gdm_dconf)):
+                log_error(
+                    '"{}" is not securely configured. Missing "user-db:user"'.
+                    format(gdm_dconf.relpath))
+
+            if not list(grep(r'^system-db:gdm', gdm_dconf)):
+                log_error(
+                    '"{}" is not securely configured. Missing "system-db:gdm"'.
+                    format(gdm_dconf.relpath))
+
+            if list(
+                    grep(r'^file-db:/usr/share/gdm/greeter-dconf-defaults',
+                         gdm_dconf)):
+                log_error(
+                    ('"{}" is not securely configured.'
+                     ' Missing "file-db:/usr/share/gdm/greeter-dconf-defaults"'
+                     ).format(gdm_dconf.relpath))
+        else:
+            log_error('"{}" is missing.'.format(gdm_dconf.relpath))
+            error(True)
+
+        parser = ConfigParser.SafeConfigParser()
+        for file in find_files(Pathname('/etc/dconf/db/gdm.d/')):
+            config = parser.read(file)
+            if parser.has_section('org/gnome/login-screen'):
+                isbanner = config.get('org/gnome/login-screen',
+                                      'banner-message-enable', False)
+                msg = config.get('org/gnome/login-screen',
+                                 'banner-message-text', None)
+                if banner and msg:
+                    break
+        else:
+            log_error('gdm banner message configuration not found.')
+            error(True)

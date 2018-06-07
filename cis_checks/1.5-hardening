@@ -9,7 +9,6 @@ from systemd import journal
 from checking.utils import Checked, Pathname, Rpm, log_error, log_info
 
 
-# TODO: Split list building and searching, better reuse
 def list_files(*args):
     entries = []
     for entry in args:
