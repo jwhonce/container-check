@@ -1,0 +1,138 @@
+#!/usr/bin/env python
+"""4 Logging and Auditing."""
+from __future__ import print_function
+
+import os
+import subprocess
+
+from checking.utils import Checked, Pathname, Systemd, grep, log_error
+
+auditd_conf = Pathname('/etc/audit/auditd.conf', prefix='/files')
+audit_rules = Pathname('/etc/audit/audit.rules')
+grub_cfg = Pathname('/boot/grub2/grub.cfg')
+
+with Checked() as (confirm, error, augeas):
+    confirm(
+        Systemd('auditd.service').isenabled,
+        '"auditd.service" should be enabled on secure systems.')
+    confirm(
+        augeas.get(os.path.join(auditd_conf, 'max_log_file')),
+        '"max_log_file" missing from "{}"'.format(auditd_conf.relpath))
+
+    action = augeas.get(os.path.join(auditd_conf, 'space_left_action'))
+    confirm(
+        action.lower() == 'email',
+        '"space_left_action" should be "email" not "{}" in "{}"'.format(
+            action, auditd_conf.relpath))
+
+    acct = augeas.get(os.path.join(auditd_conf, 'action_mail_acct'))
+    confirm(
+        acct.lower() == 'root',
+        '"action_mail_acct" should be "root" not "{}" in "{}"'.format(
+            acct, auditd_conf.relpath))
+
+    action = augeas.get(os.path.join(auditd_conf, 'admin_space_left_action'))
+    confirm(
+        action.lower() == 'halt',
+        '"admin_space_left_action" should be "halt" not "{}" in "{}"'.format(
+            action, auditd_conf.relpath))
+
+    action = augeas.get(os.path.join(auditd_conf, 'max_log_file_action'))
+    confirm(
+        action.lower() == 'keep_logs',
+        '"max_log_file_action" should be "keep_logs" not "{}" in "{}"'.format(
+            action, auditd_conf.relpath))
+
+    missing_audit = False
+    for line in grep(r'^\s*linux', grub_cfg):
+        if 'audit=1' not in line:
+            missing_audit = True
+            error(True)
+    if missing_audit:
+        log_error(('Audit events should be captured prior to auditd starting.'
+                   ' Missing "audit=1" in "{}" via "linux" lines').format(
+                       grub_cfg.relpath))
+
+    cmdline_linux = augeas.get('/files/etc/default/grub/GRUB_CMDLINE_LINUX')
+    confirm(
+        'audit=1' in cmdline_linux,
+        '"GRUB_CMDLINE_LINUX" in "/etc/default/grub" should include "audit=1"')
+
+    confirm(
+        list(grep(r'time-change', audit_rules)),
+        'Secure systems should capture system date and time modifications.')
+
+    confirm(
+        list(grep(r'identity', audit_rules)),
+        'Secure systems should capture user/group modifications.')
+
+    confirm(
+        list(grep(r'system-locale', audit_rules)),
+        'Secure systems should capture network environment modifications.')
+
+    confirm(
+        list(grep(r'MAC-policy', audit_rules)),
+        ('Secure systems should capture'
+         ' mandatory access controls modifications.'))
+
+    confirm(
+        list(grep(r'logins', audit_rules)),
+        'Secure systems should capture login and logout events.')
+
+    confirm(
+        list(grep(r'sessions', audit_rules)),
+        'Secure systems should capture session initiation events.')
+
+    confirm(
+        list(grep(r'perm_mod', audit_rules)),
+        ('Secure systems should capture'
+         ' discretionary access control modifications.'))
+
+    confirm(
+        list(grep(r'access', audit_rules)),
+        'Secure systems should capture failed attempts to access files.')
+
+    confirm(
+        list(grep(r'mounts', audit_rules)),
+        'Secure systems should capture usage of the "mount" command.')
+
+    confirm(
+        list(grep(r'delete', audit_rules)),
+        'Secure systems should capture file deletion events.')
+
+    confirm(
+        list(grep(r'scope', audit_rules)),
+        'Secure systems should capture scope change events.')
+
+    confirm(
+        list(grep(r'actions', audit_rules)),
+        'Secure systems should capture use of privileged commands.')
+
+    confirm(
+        list(grep(r'modules', audit_rules)),
+        'Secure systems should capture loading/unloading kernel modules.')
+
+    confirm(
+        list(grep(r'^\s*-e 2', audit_rules)),
+        'Secure systems should prevent "auditctl" from updating rules.')
+
+    cmd = [
+        'find',
+        Pathname('/usr'), '-xdev', '(', '-perm', '-4000', '-o', '-perm',
+        '-2000', ')', '-type', 'f'
+    ]
+    pid = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = pid.communicate()
+    confirm(pid.returncode == 0, stderr)
+
+    n = len(Pathname.MOUNT_PREFIX)
+    for file in stdout.splitlines():
+        path = file[n:] if file.startswith(Pathname.MOUNT_PREFIX) else file
+        rule = (
+            '-a always,exit -F path={} -F perm=x'
+            ' -F auid>=1000 -F auid!=4294967295 -k privileged').format(path)
+        t = list(grep(rule, audit_rules))
+        confirm(
+            t,
+            '"{}" execution not audited in "/etc/audit/audit.rules".'.format(
+                path))

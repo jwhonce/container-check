@@ -12,7 +12,7 @@ user_cfg = Pathname('/boot/grub2/user.cfg')
 zero_uid = '"{}" should have uid 0.'
 zero_gid = '"{}" should have gid 0.'
 
-with Checked() as (confirm, error):
+with Checked() as (confirm, error, augeas):
     stat = os.stat(grub_cfg)
     confirm(stat.st_uid == 0, zero_uid.format(grub_cfg.relpath))
     confirm(stat.st_gid == 0, zero_gid.format(grub_cfg.relpath))
@@ -23,7 +23,7 @@ with Checked() as (confirm, error):
         confirm(stat.st_gid == 0, zero_gid.format(user_cfg.relpath))
 
     with open(grub_cfg, 'r') as cfg:
-        for line in cfg.readlines():
+        for line in cfg.readline():
             if re.search('^GRUB2_PASSWORD', line):
                 break
         else:

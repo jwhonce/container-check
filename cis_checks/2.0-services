@@ -1,0 +1,133 @@
+#!/usr/bin/env python
+"""2.0 Services, see page 104."""
+from checking.utils import Checked, Rpm, Systemd, log_error, log_info
+
+INETD_SERVICES = (
+    'chargen-dgram',
+    'chargen-stream',
+    'daytime-dgram',
+    'daytime-stream',
+    'discard-dgram',
+    'discard-stream',
+    'echo-dgram',
+    'echo-stream',
+    'time-dgram',
+    'time-stream',
+    'tftp',
+)
+
+SYSD_SERVICES = (
+    'avahi-daemon',
+    'cups',
+    'dhcp',
+    'dovecot',
+    'httpd',
+    'named',
+    'nfs',
+    'ntalk',
+    'rpcbind',
+    'rsyncd',
+    'slapd',
+    'smb',
+    'snmpd',
+    'squid',
+    'vsftpd',
+    'ypserv',
+)
+
+SYSD_SOCKETS = (
+    'rexec',
+    'rlogin',
+    'rsh',
+    'telnet',
+    'tftp',
+)
+
+RPMS = (
+    'openldap-clients',
+    'rsh',
+    'talk',
+    'telnet',
+    'ypbind',
+)
+
+with Checked() as (confirm, error, augeas):
+    if Rpm('xinetd').isinstalled:
+        prefix = '/files{}'.format(
+            augeas.get('/files/etc/xinetd.conf/includedir'))
+        enabled = augeas.get('/files/etc/xinetd.conf/defaults/enabled') or ''
+        for service in INETD_SERVICES:
+            confirm(
+                service not in enabled,
+                'Service "{}" should not be enabled on a secure system.'.
+                format(service))
+
+            disable = augeas.get('{}/{}/service/disable'.format(
+                prefix, service))
+            confirm(
+                'yes' == disable,
+                'Service "{}" should not be enabled on a secure system.'.
+                format(service))
+
+    confirm(not Systemd('xinetd.service').isenabled,
+            '"xinetd.service" should not be enabled on a secure system.')
+
+    if Rpm('ntp').isinstalled:
+        expected = frozenset([
+            'kod',
+            'nomodify',
+            'nopeer',
+            'noquery',
+            'notrap',
+        ])
+        for restrict in augeas.match('/files/etc/ntp.conf/restrict'):
+            if augeas.get(restrict) == 'default':
+                actual = {
+                    augeas.get(a)
+                    for a in augeas.match('/'.join([restrict, '*']))
+                }
+                missing = expected.difference(actual)
+                if missing:
+                    log_error(('Verify "ntp.conf", "restrict" lines'
+                               ' are missing "{}" option(s).').format(
+                                   ', '.join(missing)))
+        log_info(
+            'Verify in "ntp.conf" that "server" or "pool" lines are correct.')
+
+        ntpd_options = {augeas.get('/files/etc/sysconfig/ntpd/OPTIONS')}
+        args = ('/files/usr/lib/systemd/system/ntpd.service'
+                '/Service/ExecStart/arguments/*')
+        for entry in augeas.match(args):
+            ntpd_options.add(augeas.get(entry))
+
+        ntpd_options = ' '.join(ntpd_options)
+        confirm('-u ntp:ntp' in ntpd_options,
+                '"ntpd" should be configured to run as user "ntp".')
+    else:
+        log_error('"ntp" should be installed and running.')
+        error(True)
+
+    if Rpm('chrony').isinstalled:
+        log_info('Verify in "chrony.conf" "server" lines are correct.')
+        chrony_options = augeas.get('/files/etc/sysconfig/chronyd/OPTIONS')
+        confirm('-u chrony',
+                '"chrony" should be configured to run as user "chrony".')
+    else:
+        log_error('"chrony" should be installed and running.')
+        error(True)
+
+    confirm(not Rpm('xorg-x11*').isinstalled,
+            '"X Windows System" should not be installed on secure servers.')
+
+    for service in SYSD_SERVICES:
+        confirm(
+            not Systemd(service + '.service').isenabled,
+            '"{}" should not be enabled on secure servers.'.format(service))
+
+    for socket in SYSD_SOCKETS:
+        confirm(not Systemd(socket + '.socket').isenabled,
+                '"{}" should not be enabled on secure servers.'.format(socket))
+
+    for rpm in RPMS:
+        confirm(not Rpm(rpm).isinstalled,
+                '"{}" should not be installed on secure servers'.format(rpm))

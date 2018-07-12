@@ -1,0 +1,15 @@
+#!/usr/bin/env python
+"""3.7 Ensure wireless interfaces are disabled."""
+from checking.utils import Checked, Pathname, log_error
+
+with Checked() as (confirm, error, augeas):
+    with open(Pathname('/proc/net/wireless')) as fd:
+        for i, line in enumerate(fd):
+            if i in [0, 1]:
+                continue
+
+            if line:
+                fields = line.split()
+                log_error(('Wireless interface {} should not'
+                           ' be enabled on secure system.').format(fields[0]))
+                error(True)

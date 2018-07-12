@@ -7,7 +7,7 @@ import os
 
 from checking.utils import Checked, Pathname
 
-with Checked() as (confirm, error):
+with Checked() as (confirm, error, augeas):
 
     def add_paths(path):
         target = []

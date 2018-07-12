@@ -4,11 +4,10 @@ import collections
 
 from checking.utils import Checked, Kmod, Pathname, Systemd
 
-mount_point = collections.namedtuple('MountPoint',
-                                     'device name fstype options dump pass_')
+MountPoint = collections.namedtuple('MountPoint',
+                                    'device name fstype options dump pass_')
 
-with Checked() as (confirm, error):
-    kmod = Kmod()
+with Checked() as (confirm, error, _):
     for fs in (
             'cramfs',
             'freexfs',
@@ -20,27 +19,30 @@ with Checked() as (confirm, error):
             'vfat',
     ):
         confirm(
-            not kmod.is_present(fs),
+            not Kmod(fs).ispresent,
             'Uncommon filesystem "{}" may impact security controls.'.format(
                 fs))
 
     mounts = {}
     with open(Pathname('/proc/mounts')) as m:
         for line in m.readlines():
-            mp = mount_point._make(line.split())
+            mp = MountPoint._make(line.split())
             mounts[mp.name] = mp
 
     for fs in ('/tmp', '/var/tmp'):
         try:
-            confirm('nosuid' in mounts[fs].options,
-                    '"{}" is not intended for storage of executables. '
-                    'Add nosuid mount option'.format(fs))
-            confirm('nodev' in mounts[fs].options,
-                    '"{}" is not intended to support devices. '
-                    'Add nodev mount option'.format(fs))
-            confirm('noexec' in mounts[fs].options,
-                    '"{}" is not intended for storage of executables. '
-                    'Add noexec mount option'.format(fs))
+            confirm(
+                'nosuid' in mounts[fs].options,
+                '"{}" is not intended for storage of executables. '
+                'Add nosuid mount option'.format(fs))
+            confirm(
+                'nodev' in mounts[fs].options,
+                '"{}" is not intended to support devices. '
+                'Add nodev mount option'.format(fs))
+            confirm(
+                'noexec' in mounts[fs].options,
+                '"{}" is not intended for storage of executables. '
+                'Add noexec mount option'.format(fs))
         except KeyError:
             confirm(fs in mounts,
                     '"{}" should be on a unique filesystem.'.format(fs))

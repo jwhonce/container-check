@@ -1,72 +1,59 @@
 #!/usr/bin/env python
 """1.5 Additional Process Hardening, see page 73."""
 
-import os
+import fileinput
 import re
+from contextlib import closing
 
+from checking.utils import (Checked, Pathname, Rpm, find_files, log_error,
+                            log_info)
 from systemd import journal
-
-from checking.utils import Checked, Pathname, Rpm, log_error, log_info
-
-
-def list_files(*args):
-    entries = []
-    for entry in args:
-        if os.path.isfile(entry):
-            entries.append(entry)
-        else:
-            for d, _, files in os.walk(entry):
-                for f in files:
-                    entries.append(os.path.join(d, f))
-    return entries
 
 
 def search_files(pattern, files):
     regex = re.compile(pattern)
-    for file in files:
-        with open(file) as fd:
-            contents = fd.read()
-            if regex.search(contents):
+    with closing(fileinput.input(files)) as fd:
+        for line in fd:
+            if regex.search(line):
                 return True
-    else:
-        return False
+    return False
 
 
-with Checked() as (confirm, error):
-    limits = list_files(
-        Pathname('/etc/security/limits.conf'),
-        Pathname('/etc/security/limits.d'),
-    )
+with Checked() as (confirm, error, augeas):
+    limits = list(
+        find_files(
+            Pathname('/etc/security/limits.conf'),
+            Pathname('/etc/security/limits.d'),
+        ))
 
-    sysctls = list_files(
-        Pathname('/etc/sysctl.conf'),
-        Pathname('/etc/sysctl.d'),
-        Pathname('/run/sysctl.d'),
-        Pathname('/usr/lib/sysctl.d'),
-    )
+    sysctls = list(
+        find_files(
+            Pathname('/etc/sysctl.conf'),
+            Pathname('/etc/sysctl.d'),
+            Pathname('/run/sysctl.d'),
+            Pathname('/usr/lib/sysctl.d'),
+        ))
 
     confirm(
-        search_files('^\*\shard\score\s0$', limits),
+        search_files(r'^\*\shard\score\s0$', limits),
         'Hard limit on core dumps should be "0" on secure systems.')
 
     with open(Pathname('/proc/sys/fs/suid_dumpable')) as fd:
         suid_dumpable = int(fd.read())
         confirm(suid_dumpable == 0, 'fs.suid_dumpable is currently enabled.')
-
     confirm(
-        search_files('fs\.suid_dumpable\s=\s0', sysctls),
+        search_files(r'fs\.suid_dumpable\s=\s0', sysctls),
         'SUID executables should be prevented'
         ' from dumping core on secure systems.')
 
     with open(Pathname('/proc/sys/kernel/randomize_va_space')) as fd:
         randomize_va_space = int(fd.read())
         confirm(randomize_va_space == 2, 'ASLR is currently disabled.')
-
     confirm(
-        search_files('kernel\.randomize_va_space\s=\s2', sysctls),
+        search_files(r'kernel\.randomize_va_space\s=\s2', sysctls),
         'ASLR should be enabled on secure systems.')
 
-    re_nx = re.compile('NX.*protection:\sactive')
+    re_nx = re.compile(r'NX.*protection:\sactive')
     with journal.Reader(path=Pathname('/var/log/journal')) as jrnl:
         jrnl.this_boot()
         jrnl.add_match(SYSLOG_IDENTIFIER=u'kernel')
@@ -78,6 +65,5 @@ with Checked() as (confirm, error):
             log_error('NX (Execute Disable) protection is not enabled.')
             error(True)
 
-    with Rpm('prelink') as rpm:
-        confirm(not rpm.isinstalled,
-                '"prelink" should not be enabled on secure systems.')
+    confirm(not Rpm('prelink').isinstalled,
+            '"prelink" should not be enabled on secure systems.')

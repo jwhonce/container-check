@@ -7,7 +7,7 @@ grub_cfg = Pathname('/boot/grub2/grub.cfg')
 default_cfg = Pathname('/etc/default/grub')
 selinux_cfg = Pathname('/etc/selinux/config')
 
-with Checked() as (confirm, error):
+with Checked() as (confirm, error, augeas):
     if list(grep(r'linux.*selinux=0', grub_cfg)):
         log_error(('SELinux has been disabled by booting with'
                    ' "selinux=0" in "{}".').format(grub_cfg.relpath))
@@ -33,9 +33,9 @@ with Checked() as (confirm, error):
     confirm(Selinux().isenabled, 'selinux enforcing is currently OFF')
 
     confirm(not Rpm('setroubleshoot').isinstalled,
-            'Production servers should not have "setroubleshoot" installed.')
+            'Secure servers should not have "setroubleshoot" installed.')
 
     confirm(not Rpm('mcstrans').isinstalled,
-            'Production servers should not have "mcstans" installed.')
+            'Secure servers should not have "mcstans" installed.')
 
     confirm(Rpm('libselinux').isinstalled, '"libselinux" is not installed.')

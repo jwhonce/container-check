@@ -9,15 +9,15 @@ import stat
 from checking.utils import (Checked, Pathname, Rpm, Selinux, find_files, grep,
                             log_error)
 
-re_mingetty = re.compile('(\\v|\\r|\\m|\\s)')
+re_mingetty = re.compile(r'(\\\v|\\\r|\\\m|\\\s)')
 sensitive_msg = (r'Sensitive information included in "{}"'
                  r' by including "\v, \r, \m or \s".')
 
 zero_uid = '"{}" should have uid 0.'
 zero_gid = '"{}" should have gid 0.'
 
-with Checked() as (confirm, error):
-    for p in ['/etc/motd', '/etc/issue', '/etc/issue.net']:
+with Checked() as (confirm, error, augeas):
+    for p in ('/etc/motd', '/etc/issue', '/etc/issue.net'):
         path = Pathname(p)
         if list(grep(re_mingetty, path)):
             log_error(sensitive_msg.format(path.relpath))
@@ -27,7 +27,7 @@ with Checked() as (confirm, error):
         confirm(s.st_uid == 0, zero_uid.format(path.relpath))
         confirm(s.st_gid == 0, zero_gid.format(path.relpath))
         mode = stat.S_IMODE(s.st_mode)
-        confirm(mode & 0644, '"{}" mode should be "0644" not "{}"'.format(
+        confirm(mode & 0644, r'"{}" mode should be "0644" not "{}"'.format(
             path.relpath, oct(mode)))
 
     if Rpm('gdm').isinstalled:

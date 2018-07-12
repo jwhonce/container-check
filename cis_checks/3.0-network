@@ -1,0 +1,207 @@
+#!/usr/bin/env python
+"""3.0 Networking, see page 150."""
+from __future__ import print_function
+
+import os
+import re
+
+from checking.utils import (Checked, IPTables, Kmod, Net, Pathname, Rpm,
+                            log_error, log_info)
+
+hosts_allow = Pathname('/etc/hosts.allow')
+hosts_deny = Pathname('/etc/hosts.deny')
+
+zero_uid = '"{}" should have uid 0.'
+zero_gid = '"{}" should have gid 0.'
+
+with Checked() as (confirm, error, augeas):
+    with open(Pathname('/proc/sys/net/ipv4/ip_forward')) as fd:
+        ip_forward = int(fd.read())
+    confirm(ip_forward == 0,
+            '"IP forwarding" should not be enabled on secure servers.')
+
+    ip_forward = augeas.get('/files/etc/sysctl.conf/net.ipv4.ip_forward') or 0
+    if ip_forward:
+        log_error(
+            '"IP forwarding" should not be enabled in "/etc/sysctl.conf"')
+        error(True)
+
+    for f in augeas.match('/files/etc/sysctl.d//net.ipv4.ip_forward'):
+        ip_forward = augeas.get(f) or 0
+        if ip_forward:
+            log_error(
+                '"IP forwarding" should not be enabled in "{}"'.format(f))
+            error(True)
+
+    # ctl should be off
+    for ctl in (
+            'net.ipv4.conf.all.send_redirects',
+            'net.ipv4.conf.default.send_redirects',
+            'net.ipv4.conf.all.accept_source_route',
+            'net.ipv4.conf.default.accept_source_route',
+            'net.ipv4.conf.all.accept_redirects',
+            'net.ipv4.conf.default.accept_redirects',
+            'net.ipv4.conf.all.secure_redirects',
+            'net.ipv4.conf.default.secure_redirects',
+            'net.ipv6.conf.all.accept_ra',
+            'net.ipv6.conf.default.accept_ra',
+            'net.ipv6.conf.all.accept_redirects',
+            'net.ipv6.conf.default.accept_redirects',
+    ):
+        target = '/proc/sys/{}'.format(ctl.replace('.', '/'))
+        with open(Pathname(target)) as fd:
+            value = int(fd.read())
+        confirm(value == 0,
+                '"{}" should not be enabled on secure servers.'.format(ctl))
+
+        target = '/files/etc/sysctl.conf/{}'.format(ctl)
+        value = augeas.get(target) or 0
+        if value:
+            log_error(('"{}" should not be'
+                       ' enabled in "/etc/sysctl.conf"').format(ctl))
+            error(True)
+
+        target = '/files/etc/sysctl.d//{}'.format(ctl)
+        for f in augeas.match(target):
+            value = augeas.get(f) or 0
+            if value:
+                log_error('"{}" should not be enabled in "{}"'.format(ctl, f))
+                error(True)
+
+    # ctl should be on
+    for ctl in (
+            'net.ipv4.conf.all.log_martians',
+            'net.ipv4.conf.default.log_martians',
+            'net.ipv4.icmp_echo_ignore_broadcasts',
+            'net.ipv4.icmp_ignore_bogus_error_responses',
+            'net.ipv4.conf.all.rp_filter',
+            'net.ipv4.conf.default.rp_filter',
+            'net.ipv4.tcp_syncookies',
+    ):
+        target = '/proc/sys/{}'.format(ctl.replace('.', '/'))
+        with open(Pathname(target)) as fd:
+            value = int(fd.read())
+        confirm(value == 1,
+                "'{}' should be enabled on secure servers.".format(ctl))
+
+        target = '/files/etc/sysctl.conf/{}'.format(ctl)
+        value = augeas.get(target)
+        if value == 0:
+            log_error(('"{}" should be'
+                       ' enabled in "/etc/sysctl.conf"').format(ctl))
+            error(True)
+            break
+
+        target = '/files/etc/sysctl.d//{}'.format(ctl)
+        for f in augeas.match(target):
+            value = augeas.get(f)
+            if value == 0:
+                log_error('"{}" should be enabled in "{}"'.format(ctl, f))
+                error(True)
+
+    # TODO: Convert to augeas when grub2 supported
+    with open(Pathname('/boot/grub2/grub.cfg')) as cfg:
+        for line in cfg.readline():
+            if re.search(r'ipv6\.disable=1', line):
+                break
+        else:
+            log_info('"IPv6" should only be enabled if required.')
+
+    if Rpm('tcp_wrappers').isinstalled and Rpm(
+            'tcp_wrappers-libs').isinstalled:
+        confirm(
+            os.path.isfile(hosts_allow),
+            '"{}" is missing'.format(hosts_allow.relpath))
+
+        deny_pattern = '/files/etc/hosts.deny/*'
+        for entry in augeas.match(deny_pattern):
+            if '#comment' in entry:
+                continue
+
+            process = '{}/process'.format(entry)
+            client = '{}/client'.format(entry)
+            if augeas.get(process) == augeas.get(client) == 'ALL':
+                break
+        else:
+            log_error('"/etc/hosts.deny" policies are'
+                      ' too lax for a secure system.')
+            error(True)
+
+        for cfg in (hosts_allow, hosts_deny):
+            stat = os.stat(cfg)
+            confirm(stat.st_uid == 0, zero_uid.format(cfg.relpath))
+            confirm(stat.st_gid == 0, zero_gid.format(cfg.relpath))
+    else:
+        log_error('"TCP Wrappers" should be installed on a secure system.')
+        error(True)
+
+    mta_listeners = []
+    for c in Net().match_state(Net.STATE_LISTEN):
+        if c.local_address.port == 25 \
+                and c.local_address.address not in ('127.0.0.1', '::1'):
+            mta_listeners.append(c.local_address)
+    confirm(
+        not mta_listeners,
+        'Secure systems should not host exposed MTA(s). Found: {}'.format(
+            ', '.join(map(lambda e: str(e), mta_listeners))))
+
+    for net in (
+            'dccp',
+            'sctp',
+            'rds',
+            'tipc',
+    ):
+        confirm(not Kmod(net).ispresent,
+                'Protocol "{}" should not be active on secure systems.')
+
+    if Rpm('iptables').isinstalled:
+        log_info('Run "iptables -L -v -n" and review policy created by rules.')
+
+        iptables = IPTables().table
+
+        defaults = ['DROP', 'REJECT']
+        for chain in ['INPUT', 'FORWARD', 'OUTPUT']:
+            confirm(
+                iptables[chain].policy in defaults,
+                'iptables chain {} default policy should be "{}" not "{}"'.
+                format(chain, ' or '.join(defaults), iptables[chain].policy))
+
+        input_accept, input_drop = None, None
+        for i, rule in enumerate(iptables['INPUT'].rules):
+            if (rule.target == 'ACCEPT' and rule.in_ == 'lo'
+                    and rule.out_ == '*' and rule.source == '0.0.0.0/0'
+                    and rule.destination == '0.0.0.0/0'):
+                input_accept = i
+            if (rule.target == 'DROP' and rule.in_ == '*' and rule.out_ == '*'
+                    and rule.source == '127.0.0.0/8'
+                    and rule.destination == '0.0.0.0/0'):
+                input_drop = i
+
+        output_accept = None
+        for rule in iptables['OUTPUT'].rules:
+            if (rule.target == 'ACCEPT' and rule.in_ == '*'
+                    and rule.out_ == 'lo' and rule.source == '0.0.0.0/0'
+                    and rule.destination == '0.0.0.0/0'):
+                output_accept = rule
+
+        if (input_accept is None or input_drop is None or output_accept is None
+                or input_accept > input_drop):
+            log_error('iptables chain "INPUT or OUTPUT"'
+                      ' not securing loopback traffic')
+            error(True)
+
+        for c in Net().match_state(Net.STATE_LISTEN):
+            if c.local_address in ['127.0.0.1', '::1']:
+                continue
+            else:
+                port = 'state NEW tcp dpt:{}'.format(c.local_address.port)
+                for r in iptables['INPUT'].rules:
+                    if r.target == 'ACCEPT' and r.state and port in r.state:
+                        break
+                else:
+                    log_error('Missing "INPUT" firewall rule for open port {}'.
+                              format(c.local_address))
+                    error(True)
+    else:
+        log_error('"iptables" should be installed on a secure systems.')
+        error(True)

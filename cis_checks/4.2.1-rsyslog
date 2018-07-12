@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+"""4.2 Logging."""
+from __future__ import print_function
+
+import fileinput
+import os
+import re
+import subprocess
+from contextlib import closing
+
+from checking.utils import (Checked, Pathname, Rpm, Systemd, find_files, grep,
+                            log_error, log_info)
+
+with Checked() as (confirm, error, augeas):
+    if Rpm('rsyslog').isinstalled:
+        confirm(
+            Systemd('rsyslog.service').isenabled,
+            '"rsyslog" service should be enabled on secure systems.')
+
+        confs = find_files(
+            Pathname('/etc/rsyslog.conf'), Pathname('/etc/rsyslog.d/'))
+        log_info('Review "rsyslog" policy as defined in "{}"'.format(
+            ', '.join(confs)))
+
+        # TODO: Convert to augeas when lens is updated
+        re_mode = re.compile(r'^\$FileCreateMode\s*(\d+)')
+        with closing(fileinput.input(confs)) as fd:
+            for line in fd:
+                hit = re_mode.search(line.strip())
+                if hit:
+                    confirm(
+                        int(hit.group(1), 8) == 0640,
+                        '"FileCreateMode" in "{}" too lax.'.format(
+                            fd.filename))
+            else:
+                log_error(
+                    r'Set "$FileCreateMode" to 0640 in "/etc/rsyslog.conf"')
+                error(True)
+
+        confirm(
+            list(grep(r'\*\.\*\s+@@', confs)),
+            ('Secure systems should save "rsyslog"'
+             ' data on a remote system.'))
+
+        confirm(
+            list(grep(r'\$ModLoad\s+imtcp')),
+            'Secure log systems should use "imtcp" module.')
+
+        confirm(
+            list(grep(r'\$InputTCPServerRun\s+514')),
+            'Secure log systems should use port "514".')

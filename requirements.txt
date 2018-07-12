@@ -1,4 +1,8 @@
+pip
+setuptools
+wheel
 docker>=3.2.1
 toml>=0.9.4
 coverage>=4.5.1
 backports.functools_lru_cache>=1.5
+pyparsing

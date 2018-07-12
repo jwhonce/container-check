@@ -1,9 +1,11 @@
+"""Model for RPM library."""
 from __future__ import absolute_import
 
 import subprocess
 import sys
-from backports.functools_lru_cache import lru_cache
+
 import rpm as _rpm
+from backports.functools_lru_cache import lru_cache
 
 from .pathname import Pathname
 
@@ -11,14 +13,20 @@ from .pathname import Pathname
 class Rpm(object):
     """Model for RPM database."""
 
-    def __init__(self, name, prefix='/host'):
+    def __init__(self, name, prefix='/host', wildcard=False):
         """Construct rpm manager."""
         self.name = name
         self._prefix = prefix
 
-        _rpm.addMacro('_dbpath', Pathname('/var/lib/rpm/'))
+        _rpm.addMacro('_dbpath', Pathname('/var/lib/rpm/', prefix=prefix))
         t = _rpm.TransactionSet()
-        m = t.dbMatch('name', name)
+        if wildcard:
+            # wildcard's poorly supported.
+            m = t.dbMatch()
+            m.pattern('name', _rpm.RPMMIRE_GLOB, name)
+        else:
+            m = t.dbMatch('name', name)
+
         for hdr in m:
             self.package = hdr
             break

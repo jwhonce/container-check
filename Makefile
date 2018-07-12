@@ -9,32 +9,42 @@ VOLUMES=\
 -v /usr:/host/usr:ro \
 -v /var:/host/var:ro
 
+OPTIONS=\
+-it \
+--privileged \
+--rm \
+--cap-add=NET_ADMIN \
+--net=host \
+--name container-check \
+container-check
+
 build:
 	docker build -t container-check .
 
 run:
 	docker run ${VOLUMES} \
-	-it --privileged --rm --name container-check container-check ./container_check --checks=./cis_checks:./checks
+	${OPTIONS} ./container_check --checks=./cis_checks
+	#-it --privileged --rm --name container-check container-check ./container_check --checks=./cis_checks:./checks
 
 shell:
 	docker run ${VOLUMES} \
-	-it --privileged --rm --name container-check container-check /bin/bash -i
+	${OPTIONS} /bin/bash -i
 
 debug:
 	docker run ${VOLUMES} \
-	-it --privileged --rm --name container-check container-check ./container_check --debug
+	${OPTIONS} ./container_check --debug
 
 test:
 	docker run ${VOLUMES} \
-	-it --privileged --rm --name container-check container-check ./checking/unittest_coverage.py
+	${OPTIONS} ./checking/unittest_coverage.py
 
 version:
 	docker run \
-	-it --privileged --rm --name container-check container-check ./container_check --version
+	${OPTIONS} ./container_check --version
 
 help: build
 	docker run \
-	-it --privileged --rm --name container-check container-check ./container_check --help
+	${OPTIONS} ./container_check --help
 
 size:
 	@docker image list container-check --format 'Current Size: {{.Repository}} {{.Size}}\n'

@@ -1,0 +1,6 @@
+#!/usr/bin/env python
+"""1.8 Ensure updates, patches, and security software are installed"""
+
+from checking.utils import log_info
+
+log_info('Run and review "yum check-update --security".')

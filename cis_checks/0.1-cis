@@ -4,3 +4,7 @@
 source checking/utils.sh
 
 echo CIS Red Hat Enterprise Linux 7 Benchmark v2.2.0-12-27-2017
+
+if [[ -n $DEBUG ]]; then
+  augtool match /augeas/version
+fi

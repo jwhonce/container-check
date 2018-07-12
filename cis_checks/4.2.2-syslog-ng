@@ -1,0 +1,18 @@
+#!/usr/bin/env python
+"""4.2.2 Configure syslog-ng."""
+from pyparsing import Word, alphas
+
+from checking.utils import (Checked, Pathname, Rpm, Systemd, find_files, grep,
+                            log_error, log_info)
+
+with Checked() as (confirm, error, augeas):
+    if Rpm('syslog-ng').isinstalled:
+        confirm(
+            Systemd('syslog-ng.service').isenabled,
+            '"syslog.ng" service should be enabled on secure systems.')
+
+        log_info('Review "syslong-ng" policy as defined'
+                 ' in "/etc/syslog-ng/syslong-ng.conf"')
+
+    item = Word(alphas+'_') + '('
+    options = 'options {' + Word(alphas+'_')

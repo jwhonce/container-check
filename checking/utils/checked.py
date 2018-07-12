@@ -1,5 +1,8 @@
+"""Provide context manager helper for checks."""
 import sys
 import traceback
+
+import augeas
 
 
 class Checked(object):
@@ -21,7 +24,7 @@ class Checked(object):
         self._error = value
 
     def confirm(self, boolean, message, *args, **kwargs):
-        """Set errors and write out message."""
+        """Confirm boolean True otherwise set error and write out message."""
         if not boolean:
             self.error = True
             sys.stderr.write(str(message) + '\n')
@@ -29,7 +32,13 @@ class Checked(object):
 
     def __enter__(self):
         """Enter context manager and provide handlers."""
-        return (self.confirm, lambda v: setattr(self, 'error', v))
+        self._augeas = augeas.Augeas(root='/host')
+
+        return (
+            self.confirm,
+            lambda v: setattr(self, 'error', True),
+            self._augeas,
+        )
 
     def __exit__(self, ex_type, ex_value, ex_traceback):
         """Log any exceptions."""
@@ -38,6 +47,7 @@ class Checked(object):
                 traceback.format_exception(ex_type, ex_value, ex_traceback)))
 
         # Clean up before exiting
+        self._augeas.close()
         sys.stderr.flush()
         sys.stdout.flush()
         sys.exit(1 if self._error else 0)
